@@ -231,9 +231,32 @@ const CHARACTER_ART = {
   leviathan: leviathanPortrait
 };
 const getCharacterPortrait = (characterId, difficulty = 'medium') => CHARACTER_ART[characterId] || DIFFICULTY_ART[difficulty] || DIFFICULTY_ART.medium;
-const APP_VERSION = 'v0.3.0';
+const APP_VERSION = 'v0.3.1';
 const ADVENTURE_ROUTE = ['tortoise', 'shark', 'archivist', 'eel', 'siren', 'undertow', 'cartographer', 'piranha', 'hermit', 'leviathan'];
 const ADVENTURE_BOSS_ID = ADVENTURE_ROUTE[ADVENTURE_ROUTE.length - 1];
+const RIVAL_PROGRESS_STORAGE_KEY = 'forgetful-fish-rival-progress-v1';
+const clampAdventureProgress = (value) => Math.max(0, Math.min(Number.isFinite(value) ? value : 0, ADVENTURE_ROUTE.length));
+const loadRivalProgress = () => {
+  if (typeof window === 'undefined') return { adventureWinsCount: 0 };
+  try {
+    const raw = window.localStorage.getItem(RIVAL_PROGRESS_STORAGE_KEY);
+    if (!raw) return { adventureWinsCount: 0 };
+    const parsed = JSON.parse(raw);
+    return {
+      adventureWinsCount: clampAdventureProgress(parsed?.adventureWinsCount)
+    };
+  } catch (_error) {
+    return { adventureWinsCount: 0 };
+  }
+};
+const saveRivalProgress = (adventureWinsCount) => {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(RIVAL_PROGRESS_STORAGE_KEY, JSON.stringify({
+      adventureWinsCount: clampAdventureProgress(adventureWinsCount)
+    }));
+  } catch (_error) {}
+};
 
 // --- PRELOADER COMPONENT ---
 const Preloader = ({ onComplete }) => {
@@ -542,7 +565,7 @@ export default function App() {
   const [menuMode, setMenuMode] = useState('adventure');
   const [selectedDifficulty, setSelectedDifficulty] = useState('medium');
   const [selectedOpponentCharacter, setSelectedOpponentCharacter] = useState(DEFAULT_AI_CHARACTER_ID);
-  const [adventureWinsCount, setAdventureWinsCount] = useState(0);
+  const [adventureWinsCount, setAdventureWinsCount] = useState(() => loadRivalProgress().adventureWinsCount);
   const [useOfficialCards, setUseOfficialCards] = useState(true);
   const [showMenuSettings, setShowMenuSettings] = useState(false);
   const [showRivalMenu, setShowRivalMenu] = useState(false);
@@ -579,6 +602,7 @@ export default function App() {
     : currentOpponentCharacter?.title || `Hand: ${state.ai.hand.length}`;
 
   useEffect(() => { AudioEngine.muted = muted; }, [muted]);
+  useEffect(() => { saveRivalProgress(adventureWinsCount); }, [adventureWinsCount]);
 
   useEffect(() => {
     if (state.stackResolving && !state.pendingAction) {
