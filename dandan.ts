@@ -303,6 +303,7 @@ const Preloader = ({ onComplete }) => {
 // --- RESPONSIVE CARD COMPONENT ---
 const Card = ({ card, onClick, onZoom, zone = 'hand', style = {}, hidden = false, official = false, draggable = false, onDragStart, onDragOver, onDrop, castable = false, targetable = false, activatable = false }) => {
   const holdTimer = useRef(null);
+  const [isPressing, setIsPressing] = useState(false);
 
   const startHold = (e) => {
      if (e.type === 'mousedown' && e.button === 2) {
@@ -310,12 +311,14 @@ const Card = ({ card, onClick, onZoom, zone = 'hand', style = {}, hidden = false
         onZoom && onZoom(card);
         return;
      }
+     if (zone === 'board' && card.isLand) setIsPressing(true);
      holdTimer.current = setTimeout(() => {
         onZoom && onZoom(card);
      }, 600); 
   };
 
   const cancelHold = () => {
+     setIsPressing(false);
      if (holdTimer.current) {
          clearTimeout(holdTimer.current);
          holdTimer.current = null;
@@ -342,7 +345,7 @@ const Card = ({ card, onClick, onZoom, zone = 'hand', style = {}, hidden = false
       interactionClass = 'cursor-pointer hover:-translate-y-4';
   } else if (activatable && zone === 'board') {
       ringClass = 'ring-2 ring-cyan-400 ring-offset-1 ring-offset-slate-950 shadow-[0_0_15px_rgba(34,211,238,0.6)] animate-pulse cursor-pointer';
-      interactionClass = 'cursor-pointer hover:scale-105';
+      interactionClass = 'cursor-pointer hover:scale-[1.02]';
   } else if (card.attacking) {
       ringClass = 'ring-2 ring-orange-500 ring-offset-1 shadow-[0_0_15px_rgba(249,115,22,0.8)]';
   } else if (card.blocking) {
@@ -350,6 +353,9 @@ const Card = ({ card, onClick, onZoom, zone = 'hand', style = {}, hidden = false
   } else {
       if (zone === 'hand') interactionClass = 'cursor-pointer hover:-translate-y-4';
       if (zone === 'board' && card.name === 'DandÃ¢n' && !card.tapped && !card.summoningSickness) interactionClass = 'cursor-pointer hover:ring-2 hover:ring-slate-400';
+  }
+  if (zone === 'board' && card.isLand) {
+    interactionClass = `${interactionClass} cursor-pointer hover:ring-1 hover:ring-cyan-200/70 hover:ring-offset-1 hover:ring-offset-slate-950 hover:shadow-[0_0_10px_rgba(125,211,252,0.2)]`.trim();
   }
 
   const CardBack = () => (
@@ -370,6 +376,7 @@ const Card = ({ card, onClick, onZoom, zone = 'hand', style = {}, hidden = false
       onTouchStart={startHold}
       onTouchEnd={cancelHold}
       onTouchMove={cancelHold}
+      onTouchCancel={cancelHold}
       onContextMenu={(e) => { e.preventDefault(); onZoom && onZoom(card); }}
       draggable={draggable}
       onDragStart={(e) => { cancelHold(); onDragStart && onDragStart(e); }}
@@ -378,6 +385,9 @@ const Card = ({ card, onClick, onZoom, zone = 'hand', style = {}, hidden = false
       className={`relative rounded-md transition-all duration-200 ease-out shadow-lg shrink-0 ${dims} ${ringClass} ${interactionClass}`}
       style={{ transform: getBaseTransform(), transformStyle: 'preserve-3d', ...style }}
     >
+      {zone === 'board' && card.isLand && isPressing && (
+        <div className="absolute inset-[-2px] rounded-[8px] border border-cyan-100/70 bg-cyan-200/8 shadow-[0_0_12px_rgba(34,211,238,0.22)] pointer-events-none z-50" />
+      )}
       <div className="absolute inset-0 bg-slate-900" />
       {hidden ? <CardBack /> : official ? (
         <img src={card.fullImage} alt={card.name} className="absolute inset-0 w-full h-full object-cover rounded-md pointer-events-none" />
@@ -403,11 +413,15 @@ const Card = ({ card, onClick, onZoom, zone = 'hand', style = {}, hidden = false
           )}
         </div>
       )}
-      {card.tapped && zone === 'board' && <div className="absolute inset-0 bg-black/50 rounded-md z-30 pointer-events-none flex items-center justify-center"><div className="w-4 h-4 rounded-full border-2 border-slate-300 opacity-50 rotate-90" style={{ borderTopColor: 'transparent', borderRightColor: 'transparent' }}/></div>}
+      {card.tapped && zone === 'board' && (
+        <div className={`absolute inset-0 rounded-md z-30 pointer-events-none flex items-center justify-center ${card.isLand ? 'bg-sky-950/30 border border-sky-300/30 shadow-[inset_0_0_18px_rgba(125,211,252,0.2)]' : 'bg-black/50'}`}>
+          <div className={`w-4 h-4 rounded-full border-2 rotate-90 ${card.isLand ? 'border-sky-100 opacity-80' : 'border-slate-300 opacity-50'}`} style={{ borderTopColor: 'transparent', borderRightColor: 'transparent' }}/>
+        </div>
+      )}
       {card.isSwamp && zone === 'board' && <div className="absolute inset-0 bg-purple-900/60 rounded-md z-20 pointer-events-none mix-blend-multiply flex items-center justify-center"><span className="text-purple-300 font-bold rotate-45 opacity-60 text-xs">SWAMP</span></div>}
-      {card.summoningSickness && zone === 'board' && (
-         <div className="absolute top-1 right-1 bg-slate-900/80 rounded-full w-4 h-4 flex items-center justify-center shadow z-40 text-[8px]" title="Summoning Sickness">
-            ðŸ’¤
+      {card.summoningSickness && !card.isLand && zone === 'board' && (
+         <div className="absolute top-1 right-1 bg-slate-900/85 rounded-full min-w-[18px] h-[18px] px-1 flex items-center justify-center shadow z-40 text-[8px] font-black tracking-tight text-slate-100" title="Summoning Sickness">
+            Zz
          </div>
       )}
     </div>
@@ -461,11 +475,6 @@ const StackedLandGroup = ({ lands, official, state, zone, onZoom, onClick, activ
       {isGroupActivatable && zone === 'board' && (
         <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 bg-cyan-400 text-slate-950 border border-cyan-200 font-black px-2 py-0.5 rounded-full shadow-[0_0_15px_rgba(34,211,238,0.6)] text-[9px] tracking-widest z-20">
           ACTIVATE
-        </div>
-      )}
-      {total >= 5 && (
-        <div className="absolute -top-2 -right-2 bg-slate-900/95 text-blue-300 border border-blue-500 font-bold px-1.5 py-0.5 rounded shadow-lg text-[10px] z-20">
-          x{total}
         </div>
       )}
       {tapped > 0 && total >= 5 && (
@@ -756,7 +765,7 @@ export default function App() {
                 <button
                   onClick={() => setShowMenuSettings(true)}
                   aria-label="Open settings"
-                  className="font-arena-display shrink-0 w-12 h-12 rounded-2xl bg-slate-900/90 border border-slate-700 text-slate-100 hover:bg-slate-800 active:scale-[0.97] transition-all flex items-center justify-center shadow-[0_12px_28px_rgba(2,6,23,0.35)]"
+                  className="shrink-0 w-12 h-12 rounded-2xl bg-slate-900/90 border border-slate-700 text-slate-100 hover:bg-slate-800 active:scale-[0.97] transition-all flex items-center justify-center shadow-[0_12px_28px_rgba(2,6,23,0.35)]"
                 >
                   <Settings size={17} />
                 </button>
@@ -769,7 +778,7 @@ export default function App() {
                     <button
                       key={difficulty}
                       onClick={() => setSelectedDifficulty(difficulty)}
-                      className={`font-arena-display group rounded-[1.35rem] px-2 py-2.5 sm:px-3 sm:py-3 transition-all duration-200 active:scale-[0.98] ${
+                      className={`group rounded-[1.35rem] px-2 py-2.5 sm:px-3 sm:py-3 transition-all duration-200 active:scale-[0.98] ${
                         selectedDifficulty === difficulty
                           ? 'bg-white/10 shadow-[0_14px_32px_rgba(34,211,238,0.12)]'
                           : 'bg-transparent hover:bg-white/6'
@@ -799,13 +808,13 @@ export default function App() {
               <div className="grid gap-3">
                 <button
                   onClick={() => dispatch({ type: 'START_GAME', mode: 'player', difficulty: selectedDifficulty })}
-                  className="font-arena-display w-full min-h-[60px] py-4 px-4 bg-[#38bdf8] hover:bg-[#22c7ff] active:scale-[0.99] text-slate-950 font-bold tracking-[0.12em] uppercase rounded-[1.55rem] text-base border border-sky-200/70 shadow-[0_16px_28px_rgba(56,189,248,0.28)] transition-all flex items-center justify-center gap-2"
+                  className="w-full min-h-[60px] py-4 px-4 bg-[#38bdf8] hover:bg-[#22c7ff] active:scale-[0.99] text-slate-950 font-bold tracking-[0.04em] uppercase rounded-[1.55rem] text-base border border-sky-200/70 shadow-[0_16px_28px_rgba(56,189,248,0.28)] transition-all flex items-center justify-center gap-2"
                 >
                   <Play fill="currentColor" size={18} /> Start New Game
                 </button>
                 <button
                   onClick={() => dispatch({ type: 'START_GAME', mode: 'ai_vs_ai', difficulty: selectedDifficulty })}
-                  className="font-arena-display w-full min-h-[60px] py-4 px-4 bg-slate-900/92 hover:bg-slate-800 active:scale-[0.99] text-slate-100 font-bold tracking-[0.12em] uppercase rounded-[1.55rem] text-base border border-slate-600 shadow-[0_16px_28px_rgba(15,23,42,0.4)] transition-all flex items-center justify-center gap-2"
+                  className="w-full min-h-[60px] py-4 px-4 bg-slate-900/92 hover:bg-slate-800 active:scale-[0.99] text-slate-100 font-bold tracking-[0.04em] uppercase rounded-[1.55rem] text-base border border-slate-600 shadow-[0_16px_28px_rgba(15,23,42,0.4)] transition-all flex items-center justify-center gap-2"
                 >
                   <Activity size={18} /> AI Mode
                 </button>
@@ -818,21 +827,21 @@ export default function App() {
             <div className="w-full max-w-sm bg-slate-900/96 border border-white/12 rounded-[1.9rem] shadow-[0_26px_80px_rgba(2,6,23,0.72)] p-5 sm:p-6 text-left">
               <div className="flex items-center justify-between mb-5">
                 <h2 className="text-lg font-black text-cyan-100 tracking-[0.22em] uppercase">Settings</h2>
-                <button onClick={() => setShowMenuSettings(false)} className="font-arena-display w-10 h-10 rounded-2xl bg-slate-950 border border-slate-700 text-slate-400 hover:text-white hover:bg-slate-800 transition-all flex items-center justify-center">
+                <button onClick={() => setShowMenuSettings(false)} className="w-10 h-10 rounded-2xl bg-slate-950 border border-slate-700 text-slate-400 hover:text-white hover:bg-slate-800 transition-all flex items-center justify-center">
                   <X size={18} />
                 </button>
               </div>
               <div className="space-y-3">
-                <button onClick={() => setMuted(!muted)} className={`font-arena-display w-full flex items-center justify-between px-4 py-3.5 rounded-2xl border transition-all ${muted ? 'bg-slate-950 border-slate-700 text-slate-300' : 'bg-sky-400 border-sky-200 text-slate-950 shadow-[0_0_18px_rgba(56,189,248,0.2)]'}`}>
+                <button onClick={() => setMuted(!muted)} className={`w-full flex items-center justify-between px-4 py-3.5 rounded-2xl border transition-all ${muted ? 'bg-slate-950 border-slate-700 text-slate-300' : 'bg-sky-400 border-sky-200 text-slate-950 shadow-[0_0_18px_rgba(56,189,248,0.2)]'}`}>
                   <span className="font-bold uppercase tracking-wider text-sm">Sound</span>
                   <span className="flex items-center gap-2 text-sm">{muted ? <VolumeX size={16}/> : <Volume2 size={16}/>} {muted ? 'Muted' : 'On'}</span>
                 </button>
-                <button onClick={() => setUseOfficialCards(!useOfficialCards)} className={`font-arena-display w-full flex items-center justify-between px-4 py-3.5 rounded-2xl border transition-all ${useOfficialCards ? 'bg-sky-400 border-sky-200 text-slate-950 shadow-[0_0_18px_rgba(56,189,248,0.2)]' : 'bg-slate-950 border-slate-700 text-slate-300'}`}>
+                <button onClick={() => setUseOfficialCards(!useOfficialCards)} className={`w-full flex items-center justify-between px-4 py-3.5 rounded-2xl border transition-all ${useOfficialCards ? 'bg-sky-400 border-sky-200 text-slate-950 shadow-[0_0_18px_rgba(56,189,248,0.2)]' : 'bg-slate-950 border-slate-700 text-slate-300'}`}>
                   <span className="font-bold uppercase tracking-wider text-sm">Card Art</span>
                   <span className="flex items-center gap-2 text-sm"><ImageIcon size={16}/> {useOfficialCards ? 'SLD Art' : 'Proxy'}</span>
                 </button>
               </div>
-              <button onClick={() => setShowMenuSettings(false)} className="font-arena-display w-full mt-5 py-3.5 bg-[#38bdf8] hover:bg-[#22c7ff] text-slate-950 font-bold tracking-[0.12em] uppercase rounded-2xl border border-sky-200/70 transition-colors shadow-[0_14px_28px_rgba(56,189,248,0.22)]">
+              <button onClick={() => setShowMenuSettings(false)} className="w-full mt-5 py-3.5 bg-[#38bdf8] hover:bg-[#22c7ff] text-slate-950 font-bold tracking-[0.04em] uppercase rounded-2xl border border-sky-200/70 transition-colors shadow-[0_14px_28px_rgba(56,189,248,0.22)]">
                 Close
               </button>
             </div>
@@ -946,7 +955,7 @@ export default function App() {
       {/* STARTING MULLIGAN MODAL */}
       {state.phase === 'mulligan' && !state.pendingAction && (
          <div className="absolute inset-0 bg-black/90 z-[110] flex flex-col items-center justify-center p-4 backdrop-blur-md animate-in fade-in duration-300">
-             <h2 className="font-arena-display text-4xl font-black tracking-[0.12em] uppercase text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-300 mb-2">Starting Hand</h2>
+             <h2 className="font-arena-display text-4xl font-black tracking-[0.12em] uppercase text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-300 mb-2 text-center w-full">Starting Hand</h2>
              <p className="text-slate-400 mb-8 font-mono">Mulligans taken: {state.mulliganCount || 0}</p>
              
              <div className="flex gap-2 sm:gap-4 justify-center mb-12 flex-wrap max-w-4xl">
@@ -968,7 +977,7 @@ export default function App() {
                <p className="text-slate-300 text-sm mb-8">Select <span className="text-white font-bold text-lg">{state.pendingAction.count}</span> card(s) to discard or put on bottom.</p>
                <div className="flex flex-wrap gap-3 justify-center mb-8">
                   {state.player.hand.map(c => (
-                     <div key={c.id} onClick={() => dispatch({ type: 'TOGGLE_PENDING_SELECT', cardId: c.id })} className={`cursor-pointer transition-all duration-200 ${state.pendingAction.selected.includes(c.id) ? 'ring-4 ring-blue-500 -translate-y-4 rounded-md scale-105 shadow-[0_10px_20px_rgba(37,99,235,0.5)]' : 'opacity-80 hover:opacity-100'}`}>
+                     <div key={c.id} onClick={() => dispatch({ type: 'TOGGLE_PENDING_SELECT', cardId: c.id })} className={`cursor-pointer transition-all duration-200 ${state.pendingAction.selected.includes(c.id) ? 'ring-4 ring-blue-500 rounded-md shadow-[0_10px_20px_rgba(37,99,235,0.5)]' : 'opacity-80 hover:opacity-100'}`}>
                         <Card card={c} official={useOfficialCards} onZoom={setZoomedCard} />
                      </div>
                   ))}
@@ -1083,7 +1092,7 @@ export default function App() {
                <p className="text-slate-300 text-sm mb-6">Select 2 cards to put back on top of your library.</p>
                <div className="flex flex-wrap gap-2 justify-center mb-6">
                   {state.player.hand.map(c => (
-                     <div key={c.id} onClick={() => dispatch({ type: 'TOGGLE_PENDING_SELECT', cardId: c.id })} className={`cursor-pointer transition-transform ${state.pendingAction.selected.includes(c.id) ? 'ring-4 ring-blue-500 -translate-y-4 rounded-md' : 'opacity-80'}`}>
+                     <div key={c.id} onClick={() => dispatch({ type: 'TOGGLE_PENDING_SELECT', cardId: c.id })} className={`cursor-pointer transition-transform ${state.pendingAction.selected.includes(c.id) ? 'ring-4 ring-blue-500 rounded-md shadow-[0_10px_20px_rgba(37,99,235,0.45)]' : 'opacity-80'}`}>
                         <Card card={c} official={useOfficialCards} onZoom={setZoomedCard} />
                      </div>
                   ))}
@@ -1100,7 +1109,7 @@ export default function App() {
                <p className="text-slate-300 text-sm mb-6">You haven't attacked. Select 1 card to discard.</p>
                <div className="flex flex-wrap gap-2 justify-center mb-6">
                   {state.player.hand.map(c => (
-                     <div key={c.id} onClick={() => dispatch({ type: 'TOGGLE_PENDING_SELECT', cardId: c.id })} className={`cursor-pointer transition-transform ${state.pendingAction.selected.includes(c.id) ? 'ring-4 ring-red-500 -translate-y-4 rounded-md' : 'opacity-80'}`}>
+                     <div key={c.id} onClick={() => dispatch({ type: 'TOGGLE_PENDING_SELECT', cardId: c.id })} className={`cursor-pointer transition-transform ${state.pendingAction.selected.includes(c.id) ? 'ring-4 ring-red-500 rounded-md shadow-[0_10px_20px_rgba(239,68,68,0.4)]' : 'opacity-80'}`}>
                         <Card card={c} official={useOfficialCards} onZoom={setZoomedCard} />
                      </div>
                   ))}

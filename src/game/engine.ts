@@ -401,7 +401,7 @@ export const isValidTarget = (card, zone, state) => {
 
 // SMART AUTO-PASS SYSTEM
 export const checkHasActions = (s, p) => {
-  if (s.phase === 'mulligan' || s.phase === 'cleanup') return true;
+  if (s.phase === 'mulligan') return true;
   if (s.pendingTargetSelection || s.pendingAction) return true;
   
   const opp = p === 'player' ? 'ai' : 'player';
@@ -1093,8 +1093,10 @@ export const createGameReducer = (effects = defaultEffects) => {
          s.hasAttacked[attacker] = true;
          s.phase = 'main2'; s.priority = s.turn;
       } else if (s.phase === 'main2') {
+         s.phase = 'cleanup';
+         s.priority = s.turn;
+      } else if (s.phase === 'cleanup') {
          if (s[s.turn].hand.length > 7) {
-              s.phase = 'cleanup';
               if (s.turn === 'player') {
                   s.pendingAction = { type: 'DISCARD_CLEANUP', count: s.player.hand.length - 7, selected: [] };
                   s.priority = 'player';
@@ -1102,14 +1104,17 @@ export const createGameReducer = (effects = defaultEffects) => {
                   return s;
               } else {
                   while(s.ai.hand.length > 7) s.graveyard.push(s.ai.hand.shift());
-                  return reducer(s, { type: 'NEXT_TURN', silentPhaseSound: true });
-               }
-          } else {
-              return reducer(s, { type: 'NEXT_TURN', silentPhaseSound: true });
+              }
           }
+          return reducer(s, { type: 'NEXT_TURN', silentPhaseSound: true });
       }
       s = checkStateBasedActions(s);
       if (!s.winner && !s.stackResolving && !s.pendingAction && !s.pendingTargetSelection && s.priority && !checkHasActions(s, s.priority)) {
+        const other = s.priority === 'player' ? 'ai' : 'player';
+        const otherPriorityState = { ...s, priority: other };
+        if (checkHasActions(otherPriorityState, other)) {
+          return reducer(s, { type: 'PASS_PRIORITY', player: s.priority });
+        }
         return reducer(s, { type: 'NEXT_PHASE', silentPhaseSound: true });
       }
       if (!action.silentPhaseSound) effects.playPhase(s.phase);
@@ -1130,6 +1135,11 @@ export const createGameReducer = (effects = defaultEffects) => {
       s.priority = s.turn;
       s = checkStateBasedActions(s);
       if (!s.winner && !s.stackResolving && !s.pendingAction && !s.pendingTargetSelection && s.priority && !checkHasActions(s, s.priority)) {
+        const other = s.priority === 'player' ? 'ai' : 'player';
+        const otherPriorityState = { ...s, priority: other };
+        if (checkHasActions(otherPriorityState, other)) {
+          return reducer(s, { type: 'PASS_PRIORITY', player: s.priority });
+        }
         return reducer(s, { type: 'NEXT_PHASE', silentPhaseSound: true });
       }
       if (!action.silentPhaseSound) effects.playPhase(s.phase);

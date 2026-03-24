@@ -39,6 +39,7 @@ const engine = await import(new URL(`file:///${path.join(runtimeDir, 'game', 'en
 const {
   CARDS,
   DANDAN_NAME,
+  checkHasActions,
   createGameReducer,
   initialState,
   isActivatable
@@ -310,6 +311,41 @@ test('Capture of Jingzhou adds an extra turn without skipping the current main p
   expect(state.extraTurns.player === 1, `Capture did not add an extra turn, got ${state.extraTurns.player}`);
   expect(state.priority === 'player', 'Player did not regain priority after Capture resolved');
   expect(state.player.hand.some((card) => card.id === brainstorm.id), 'Post-Capture follow-up spell disappeared');
+});
+
+test('opponent skipped attack still gives the player an end-step instant window', () => {
+  const island = makeCard(CARDS.ISLAND_1, { id: 'eot-island' });
+  const brainstorm = makeCard(CARDS.BRAINSTORM, { id: 'eot-brainstorm', owner: 'player' });
+
+  let state = makeState({
+    turn: 'ai',
+    phase: 'main2',
+    priority: 'ai',
+    player: {
+      life: 20,
+      hand: [brainstorm],
+      board: [island],
+      landsPlayed: 0
+    },
+    ai: {
+      life: 20,
+      hand: [],
+      board: [],
+      landsPlayed: 0
+    }
+  });
+
+  state = reducer(state, { type: 'NEXT_PHASE' });
+
+  expect(state.phase === 'cleanup', `Expected cleanup/end-step window, got ${state.phase}`);
+  expect(state.turn === 'ai', 'Turn changed before the opponent end-step window');
+  expect(state.priority === 'player', 'Priority did not pass to the player at opponent end step');
+  expect(checkHasActions(state, 'player'), 'Player should have actions at opponent end step');
+
+  state = reducer(state, { type: 'CAST_SPELL', player: 'player', cardId: brainstorm.id });
+
+  expect(state.stack.some((entry) => entry.card.id === brainstorm.id), 'Player could not cast an instant at opponent end step');
+  expect(state.turn === 'ai' && state.phase === 'cleanup', 'Casting an end-step instant changed the turn or phase incorrectly');
 });
 
 let failed = 0;
