@@ -1,6 +1,6 @@
 ﻿import React, { useState, useEffect, useRef, useReducer } from 'react';
 import { Play, SkipForward, Activity, Layers, Skull, Image as ImageIcon, Settings, X, Sun, Moon, Swords, Volume2, VolumeX, ArrowLeftRight, Target, Droplet, Shield, CloudRain, LogOut } from 'lucide-react';
-import { AI_DIFFICULTIES, AI_DIFFICULTY_LABELS, AI_SPEED, CARDS, DANDAN_NAME, PREDICT_OPTIONS, SHARED_DECK_SIZE, canDandanAttackDefender, checkHasActions, chooseAiAction, controlsIsland, createGameReducer, getAiPendingActions, getAvailableMana, getLivePolicyWeights, getManaPool, initialState, isActivatable, isCastable, isCyclable, isValidTarget } from './src/game/engine';
+import { AI_CHARACTERS, AI_DIFFICULTIES, AI_DIFFICULTY_LABELS, AI_SPEED, CARDS, DANDAN_NAME, DEFAULT_AI_CHARACTER_ID, PREDICT_OPTIONS, SHARED_DECK_SIZE, canDandanAttackDefender, checkHasActions, chooseAiAction, controlsIsland, createGameReducer, getAiCharacter, getAiPendingActions, getAiPolicyForActor, getAvailableMana, getManaPool, initialState, isActivatable, isCastable, isCyclable, isValidTarget } from './src/game/engine';
 
 // --- ADVANCED AUDIO ENGINE ---
 const AudioEngine = {
@@ -208,6 +208,19 @@ const DIFFICULTY_ART = {
   medium: `${ASSET_BASE_URL}difficulty/redfish.png`,
   hard: `${ASSET_BASE_URL}difficulty/shark.png`
 };
+const CHARACTER_ART = {
+  deathfish: DIFFICULTY_ART.easy,
+  redfin: DIFFICULTY_ART.medium,
+  tortoise: CARDS.HALIMAR.fullImage,
+  archivist: CARDS.PREDICT.fullImage,
+  undertow: CARDS.SURGICAL_BAY.fullImage,
+  shark: DIFFICULTY_ART.hard,
+  leviathan: CARDS.CAPTURE.fullImage
+};
+const getCharacterPortrait = (characterId, difficulty = 'medium') => CHARACTER_ART[characterId] || DIFFICULTY_ART[difficulty] || DIFFICULTY_ART.medium;
+const APP_VERSION = 'v0.2.0';
+const ADVENTURE_ROUTE = ['deathfish', 'redfin', 'tortoise', 'archivist', 'undertow', 'shark', 'leviathan'];
+const ADVENTURE_BOSS_ID = ADVENTURE_ROUTE[ADVENTURE_ROUTE.length - 1];
 
 // --- PRELOADER COMPONENT ---
 const Preloader = ({ onComplete }) => {
@@ -217,6 +230,7 @@ const Preloader = ({ onComplete }) => {
     const urls = new Set();
     Object.values(CARDS).forEach(c => { urls.add(c.image); urls.add(c.fullImage); });
     Object.values(DIFFICULTY_ART).forEach(url => urls.add(url));
+    Object.values(CHARACTER_ART).forEach(url => urls.add(url));
     const urlArray = Array.from(urls);
     let loaded = 0;
     
@@ -512,9 +526,13 @@ const AttachedPermanentStack = ({ permanent, attachedAuras = [], official, state
 export default function App() {
   const [preloaded, setPreloaded] = useState(false);
   const [state, dispatch] = useReducer(gameReducer, initialState);
+  const [menuMode, setMenuMode] = useState('adventure');
   const [selectedDifficulty, setSelectedDifficulty] = useState('medium');
+  const [selectedOpponentCharacter, setSelectedOpponentCharacter] = useState(DEFAULT_AI_CHARACTER_ID);
+  const [adventureWinsCount, setAdventureWinsCount] = useState(0);
   const [useOfficialCards, setUseOfficialCards] = useState(true);
   const [showMenuSettings, setShowMenuSettings] = useState(false);
+  const [showRivalMenu, setShowRivalMenu] = useState(false);
   const [showLog, setShowLog] = useState(false);
   const [showExitConfirm, setShowExitConfirm] = useState(false);
   const [muted, setMuted] = useState(false);
@@ -522,8 +540,30 @@ export default function App() {
   const [zoomedCard, setZoomedCard] = useState(null); 
   const [viewingZone, setViewingZone] = useState(null); 
   const isAiMirror = state.gameMode === 'ai_vs_ai';
+  const isAdventureMatch = state.gameMode === 'adventure';
   const difficultySpeed = AI_SPEED[state.difficulty] || AI_SPEED.medium;
-  const opponentAvatarSrc = DIFFICULTY_ART[state.difficulty || selectedDifficulty] || DIFFICULTY_ART.medium;
+  const adventurePreviewIndex = Math.min(adventureWinsCount, ADVENTURE_ROUTE.length - 1);
+  const adventurePreviewCharacter = getAiCharacter(ADVENTURE_ROUTE[adventurePreviewIndex]) || AI_CHARACTERS[0];
+  const selectedOpponent = getAiCharacter(selectedOpponentCharacter) || AI_CHARACTERS[0];
+  const currentOpponentCharacter = state.started
+    ? getAiCharacter(state.aiCharacterId)
+    : menuMode === 'adventure'
+      ? adventurePreviewCharacter
+      : selectedOpponent;
+  const currentPlayerAiCharacter = state.started ? getAiCharacter(state.playerAiCharacterId || null) : null;
+  const opponentAvatarSrc = currentOpponentCharacter
+    ? getCharacterPortrait(currentOpponentCharacter.id, state.difficulty || selectedDifficulty)
+    : (DIFFICULTY_ART[state.difficulty || selectedDifficulty] || DIFFICULTY_ART.medium);
+  const isAdventureComplete = adventureWinsCount >= ADVENTURE_ROUTE.length;
+  const nextAdventureIndex = Math.min(adventureWinsCount, ADVENTURE_ROUTE.length - 1);
+  const nextAdventureCharacter = getAiCharacter(ADVENTURE_ROUTE[nextAdventureIndex]) || AI_CHARACTERS[0];
+  const adventureProgressRatio = Math.min(adventureWinsCount / ADVENTURE_ROUTE.length, 1);
+  const adventureStageNumber = Math.min(adventureWinsCount + 1, ADVENTURE_ROUTE.length);
+  const opponentBadgeMeta = isAdventureMatch
+    ? state.aiCharacterId === ADVENTURE_BOSS_ID
+      ? 'Final Boss'
+      : `Stage ${Math.min(adventureWinsCount + 1, ADVENTURE_ROUTE.length)}/${ADVENTURE_ROUTE.length}`
+    : currentOpponentCharacter?.title || `Hand: ${state.ai.hand.length}`;
 
   useEffect(() => { AudioEngine.muted = muted; }, [muted]);
 
@@ -562,17 +602,56 @@ export default function App() {
     return () => clearTimeout(timer);
   }, [state.priority, state.actionCount, state.stackResolving, state.winner, state.turn, state.phase, state.pendingAction, isAiMirror, difficultySpeed.think, difficultySpeed.pass]);
 
+  const startMatch = (mode, aiCharacterId, playerAiCharacterId = null) => {
+    dispatch({
+      type: 'START_GAME',
+      mode,
+      difficulty: selectedDifficulty,
+      aiCharacterId,
+      playerAiCharacterId
+    });
+  };
+
+  const startFreeMatch = (characterId = selectedOpponentCharacter) => {
+    startMatch('free', characterId);
+  };
+
+  const startAdventureBattle = (stageIndex = null) => {
+    const resolvedIndex = stageIndex ?? (isAdventureComplete ? 0 : adventureWinsCount);
+    setAdventureWinsCount(resolvedIndex);
+    startMatch('adventure', ADVENTURE_ROUTE[resolvedIndex]);
+  };
+
+  const handleAdvanceAdventure = () => {
+    const nextIndex = Math.min(adventureWinsCount + 1, ADVENTURE_ROUTE.length - 1);
+    setAdventureWinsCount(nextIndex);
+    startMatch('adventure', ADVENTURE_ROUTE[nextIndex]);
+  };
+
+  const handleRestartAdventure = () => {
+    setAdventureWinsCount(0);
+    startMatch('adventure', ADVENTURE_ROUTE[0]);
+  };
+
+  const handleAdventureReturnToMenu = () => {
+    if (state.winner === 'player') {
+      setAdventureWinsCount((count) => Math.min(count + 1, ADVENTURE_ROUTE.length));
+    }
+    dispatch({ type: 'RETURN_TO_MENU' });
+  };
+
   const resolveAiPendingAction = () => {
     if (!state.pendingAction) return;
-    const policy = getLivePolicyWeights(state.difficulty || 'medium');
-    const actions = getAiPendingActions(state, policy, 'player');
+    const pendingActor = state.pendingAction.player || 'player';
+    const policy = getAiPolicyForActor(state, pendingActor);
+    const actions = getAiPendingActions(state, policy, pendingActor);
     if (actions.length === 0) return;
     actions.forEach(action => dispatch(action));
   };
 
   const takeAiAction = (actor) => {
     const difficulty = state.difficulty || 'medium';
-    const policy = getLivePolicyWeights(difficulty);
+    const policy = getAiPolicyForActor(state, actor, difficulty);
     dispatch(chooseAiAction(state, actor, difficulty, policy));
   };
 
@@ -691,13 +770,16 @@ export default function App() {
                   <br />
                   Fish
                 </h1>
-                <button
-                  onClick={() => setShowMenuSettings(true)}
-                  aria-label="Open settings"
-                  className="shrink-0 w-12 h-12 rounded-2xl bg-slate-900/90 border border-slate-700 text-slate-100 hover:bg-slate-800 active:scale-[0.97] transition-all flex items-center justify-center shadow-[0_12px_28px_rgba(2,6,23,0.35)]"
-                >
-                  <Settings size={17} />
-                </button>
+                <div className="flex flex-col items-end gap-2 shrink-0">
+                  <button
+                    onClick={() => setShowMenuSettings(true)}
+                    aria-label="Open settings"
+                    className="w-12 h-12 rounded-2xl bg-slate-900/90 border border-slate-700 text-slate-100 hover:bg-slate-800 active:scale-[0.97] transition-all flex items-center justify-center shadow-[0_12px_28px_rgba(2,6,23,0.35)]"
+                  >
+                    <Settings size={17} />
+                  </button>
+                  <div className="text-[10px] tracking-[0.24em] uppercase text-slate-500">{APP_VERSION}</div>
+                </div>
               </div>
 
               <div className="relative mb-6 rounded-[1.7rem] border border-white/10 bg-white/[0.04] px-3 py-4 sm:px-4 sm:py-5">
@@ -734,19 +816,124 @@ export default function App() {
                 </div>
               </div>
 
+              <div className="mb-3 rounded-[1.45rem] border border-white/10 bg-white/[0.045] p-2 shadow-[0_16px_30px_rgba(2,6,23,0.22)]">
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { id: 'adventure', label: 'Adventure Mode' },
+                    { id: 'free', label: 'Free Mode' }
+                  ].map(mode => (
+                    <button
+                      key={mode.id}
+                      onClick={() => setMenuMode(mode.id)}
+                      className={`rounded-[1.15rem] px-3 py-3 text-sm font-black uppercase tracking-[0.14em] transition-all ${
+                        menuMode === mode.id
+                          ? 'bg-cyan-300 text-slate-950 shadow-[0_12px_24px_rgba(103,232,249,0.24)]'
+                          : 'bg-slate-950/70 text-slate-300 hover:bg-slate-900'
+                      }`}
+                    >
+                      {mode.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               <div className="grid gap-3">
-                <button
-                  onClick={() => dispatch({ type: 'START_GAME', mode: 'player', difficulty: selectedDifficulty })}
-                  className="w-full min-h-[60px] py-4 px-4 bg-[#38bdf8] hover:bg-[#22c7ff] active:scale-[0.99] text-slate-950 font-bold tracking-[0.04em] uppercase rounded-[1.55rem] text-base border border-sky-200/70 shadow-[0_16px_28px_rgba(56,189,248,0.28)] transition-all flex items-center justify-center gap-2"
-                >
-                  <Play fill="currentColor" size={18} /> Start New Game
-                </button>
-                <button
-                  onClick={() => dispatch({ type: 'START_GAME', mode: 'ai_vs_ai', difficulty: selectedDifficulty })}
-                  className="w-full min-h-[60px] py-4 px-4 bg-slate-900/92 hover:bg-slate-800 active:scale-[0.99] text-slate-100 font-bold tracking-[0.04em] uppercase rounded-[1.55rem] text-base border border-slate-600 shadow-[0_16px_28px_rgba(15,23,42,0.4)] transition-all flex items-center justify-center gap-2"
-                >
-                  <Activity size={18} /> AI Mode
-                </button>
+                {menuMode === 'adventure' ? (
+                  <>
+                    <div className="rounded-[1.55rem] border border-white/10 bg-white/[0.05] px-4 py-4 shadow-[0_16px_32px_rgba(2,6,23,0.28)]">
+                      <div className="flex items-center gap-3">
+                        <img
+                          src={getCharacterPortrait(nextAdventureCharacter.id, selectedDifficulty)}
+                          alt={nextAdventureCharacter.name}
+                          className="w-16 h-16 rounded-[1.2rem] object-cover border border-white/15 shadow-lg"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <div className="text-[10px] uppercase tracking-[0.22em] text-cyan-200/80 font-black">
+                            {isAdventureComplete
+                              ? 'Adventure Complete'
+                              : nextAdventureCharacter.id === ADVENTURE_BOSS_ID
+                                ? `Boss Fight ${ADVENTURE_ROUTE.length}/${ADVENTURE_ROUTE.length}`
+                                : `Stage ${adventureStageNumber}/${ADVENTURE_ROUTE.length}`}
+                          </div>
+                          <div className="text-lg font-black text-white truncate">
+                            {isAdventureComplete ? 'Gauntlet Cleared' : nextAdventureCharacter.name}
+                          </div>
+                          <div className="text-[11px] uppercase tracking-[0.18em] text-slate-400">
+                            {isAdventureComplete ? 'Start again anytime' : nextAdventureCharacter.title}
+                          </div>
+                        </div>
+                      </div>
+                      <p className="mt-3 text-sm leading-5 text-slate-300">
+                        {isAdventureComplete
+                          ? 'You already reached the end of the gauntlet. Restart to run every personality again and face the final boss one more time.'
+                          : `Fight every rival in sequence, then survive the final boss duel against ${getAiCharacter(ADVENTURE_BOSS_ID)?.name}. ${nextAdventureCharacter.summary}`}
+                      </p>
+                      <div className="mt-4">
+                        <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
+                          <span>Progress</span>
+                          <span>{Math.min(adventureWinsCount, ADVENTURE_ROUTE.length)}/{ADVENTURE_ROUTE.length}</span>
+                        </div>
+                        <div className="mt-2 h-2 rounded-full bg-slate-800 overflow-hidden">
+                          <div
+                            className="h-full rounded-full bg-gradient-to-r from-cyan-300 via-sky-300 to-blue-400 transition-all duration-300"
+                            style={{ width: `${isAdventureComplete ? 100 : adventureProgressRatio * 100}%` }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => startAdventureBattle()}
+                      className="w-full min-h-[60px] py-4 px-4 bg-[#38bdf8] hover:bg-[#22c7ff] active:scale-[0.99] text-slate-950 font-bold tracking-[0.04em] uppercase rounded-[1.55rem] text-base border border-sky-200/70 shadow-[0_16px_28px_rgba(56,189,248,0.28)] transition-all flex items-center justify-center gap-2"
+                    >
+                      <Play fill="currentColor" size={18} /> {isAdventureComplete ? 'Restart Adventure' : adventureWinsCount > 0 ? 'Continue Adventure' : 'Begin Adventure'}
+                    </button>
+                    {adventureWinsCount > 0 && !isAdventureComplete && (
+                      <button
+                        onClick={handleRestartAdventure}
+                        className="w-full min-h-[56px] py-3.5 px-4 bg-slate-900/92 hover:bg-slate-800 active:scale-[0.99] text-slate-100 font-bold tracking-[0.04em] uppercase rounded-[1.55rem] text-sm border border-slate-600 shadow-[0_16px_28px_rgba(15,23,42,0.4)] transition-all flex items-center justify-center gap-2"
+                      >
+                        Restart From Stage 1
+                      </button>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <div className="rounded-[1.55rem] border border-white/10 bg-white/[0.05] px-4 py-4 shadow-[0_16px_32px_rgba(2,6,23,0.28)]">
+                      <div className="flex items-center gap-3">
+                        <img
+                          src={getCharacterPortrait(selectedOpponent.id, selectedDifficulty)}
+                          alt={selectedOpponent.name}
+                          className="w-16 h-16 rounded-[1.2rem] object-cover border border-white/15 shadow-lg"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <div className="text-[10px] uppercase tracking-[0.22em] text-cyan-200/80 font-black">Selected Rival</div>
+                          <div className="text-lg font-black text-white truncate">{selectedOpponent.name}</div>
+                          <div className="text-[11px] uppercase tracking-[0.18em] text-slate-400">{selectedOpponent.title}</div>
+                        </div>
+                        <button
+                          onClick={() => setShowRivalMenu(true)}
+                          className="shrink-0 px-3 py-2 rounded-xl bg-slate-900/90 border border-slate-600 text-slate-100 text-xs font-black uppercase tracking-[0.16em] hover:bg-slate-800 transition-colors"
+                        >
+                          Rivals
+                        </button>
+                      </div>
+                      <p className="mt-3 text-sm leading-5 text-slate-300">{selectedOpponent.summary}</p>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {selectedOpponent.tags.map(tag => (
+                          <span key={tag} className="px-2.5 py-1 rounded-full border border-cyan-400/20 bg-cyan-400/10 text-[10px] font-black uppercase tracking-[0.14em] text-cyan-100">
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => startFreeMatch(selectedOpponentCharacter)}
+                      className="w-full min-h-[60px] py-4 px-4 bg-[#38bdf8] hover:bg-[#22c7ff] active:scale-[0.99] text-slate-950 font-bold tracking-[0.04em] uppercase rounded-[1.55rem] text-base border border-sky-200/70 shadow-[0_16px_28px_rgba(56,189,248,0.28)] transition-all flex items-center justify-center gap-2"
+                    >
+                      <Play fill="currentColor" size={18} /> Fight {selectedOpponent.name}
+                    </button>
+                  </>
+                )}
               </div>
             </div>
           </div>
@@ -776,19 +963,119 @@ export default function App() {
             </div>
           </div>
         )}
+        {showRivalMenu && (
+          <div className="absolute inset-0 z-20 bg-black/72 backdrop-blur-md flex items-center justify-center p-4 sm:p-6">
+            <div className="w-full max-w-3xl max-h-[88vh] overflow-hidden bg-slate-900/96 border border-white/12 rounded-[1.9rem] shadow-[0_26px_80px_rgba(2,6,23,0.72)] p-5 sm:p-6 text-left flex flex-col">
+              <div className="flex items-center justify-between mb-5">
+                <div>
+                  <h2 className="text-lg font-black text-cyan-100 tracking-[0.22em] uppercase">Rivals</h2>
+                  <p className="text-sm text-slate-400 mt-1">Choose the opponent you want to fight.</p>
+                </div>
+                <button onClick={() => setShowRivalMenu(false)} className="w-10 h-10 rounded-2xl bg-slate-950 border border-slate-700 text-slate-400 hover:text-white hover:bg-slate-800 transition-all flex items-center justify-center">
+                  <X size={18} />
+                </button>
+              </div>
+              <div className="grid sm:grid-cols-2 gap-3 overflow-y-auto custom-scrollbar pr-1">
+                {AI_CHARACTERS.map(character => {
+                  const isSelected = selectedOpponentCharacter === character.id;
+                  return (
+                    <button
+                      key={character.id}
+                      onClick={() => {
+                        setSelectedOpponentCharacter(character.id);
+                        setShowRivalMenu(false);
+                      }}
+                      className={`text-left rounded-[1.5rem] border p-3.5 transition-all ${
+                        isSelected
+                          ? 'bg-cyan-400/10 border-cyan-300/40 shadow-[0_16px_30px_rgba(34,211,238,0.12)]'
+                          : 'bg-slate-950/70 border-slate-700 hover:bg-slate-900 hover:border-slate-500'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <img
+                          src={getCharacterPortrait(character.id, selectedDifficulty)}
+                          alt={character.name}
+                          className="w-16 h-16 rounded-[1.15rem] object-cover border border-white/15"
+                        />
+                        <div className="min-w-0">
+                          <div className="text-sm font-black tracking-[0.08em] uppercase text-white">{character.name}</div>
+                          <div className="text-[10px] uppercase tracking-[0.18em] text-slate-400">{character.title}</div>
+                        </div>
+                      </div>
+                      <p className="mt-3 text-sm leading-5 text-slate-300">{character.summary}</p>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {character.tags.map(tag => (
+                          <span key={tag} className={`px-2.5 py-1 rounded-full border text-[10px] font-black uppercase tracking-[0.14em] ${
+                            isSelected
+                              ? 'border-cyan-300/30 bg-cyan-300/10 text-cyan-50'
+                              : 'border-slate-700 bg-slate-800 text-slate-300'
+                          }`}>
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
+
+  const winnerCharacter = state.winner === 'player'
+    ? currentPlayerAiCharacter
+    : state.winner === 'ai'
+      ? currentOpponentCharacter
+      : null;
+  const isAdventureBossBattle = isAdventureMatch && state.aiCharacterId === ADVENTURE_BOSS_ID;
+  const adventureNextCharacter = getAiCharacter(ADVENTURE_ROUTE[Math.min(adventureWinsCount + 1, ADVENTURE_ROUTE.length - 1)]) || AI_CHARACTERS[0];
+  const winnerHeading = isAiMirror
+    ? winnerCharacter?.name || (state.winner === 'player' ? 'Left AI Wins' : 'Right AI Wins')
+    : isAdventureMatch && state.winner === 'player' && isAdventureBossBattle
+      ? 'Adventure Cleared'
+      : state.winner === 'player'
+        ? 'VICTORY'
+        : 'DEFEAT';
+  const winnerSubheading = isAiMirror
+    ? winnerCharacter?.title || 'Exhibition complete'
+    : isAdventureMatch && state.winner === 'player' && isAdventureBossBattle
+      ? `${currentOpponentCharacter?.name || 'The boss'} finally fell.`
+      : isAdventureMatch && state.winner === 'player'
+        ? `Next rival: ${adventureNextCharacter.name}`
+        : isAdventureMatch && state.winner === 'ai'
+          ? `${currentOpponentCharacter?.name || 'Your rival'} held stage ${Math.min(adventureWinsCount + 1, ADVENTURE_ROUTE.length)}.`
+          : null;
 
   if (state.winner) {
     return (
       <div className="h-dvh bg-slate-950 text-slate-100 flex items-center justify-center p-6">
         <div className="text-center space-y-6 max-w-sm w-full bg-slate-900/80 p-8 rounded-2xl border border-slate-700 shadow-2xl">
           <h1 className="font-arena-display text-4xl font-black tracking-[0.12em] uppercase text-transparent bg-clip-text bg-gradient-to-b from-slate-100 to-slate-400">
-             {state.winner === 'player' ? 'VICTORY' : 'DEFEAT'}
+             {winnerHeading}
           </h1>
-          <button onClick={() => dispatch({ type: 'START_GAME', mode: state.gameMode, difficulty: state.difficulty })} className="w-full py-3 bg-[#38bdf8] hover:bg-[#22c7ff] text-slate-950 rounded-xl font-bold tracking-widest uppercase border border-sky-200/70 shadow-[0_0_24px_rgba(56,189,248,0.28)] transition-colors">Play Again</button>
-          <button onClick={() => dispatch({ type: 'RETURN_TO_MENU' })} className="w-full py-3 bg-slate-900/92 hover:bg-slate-800 text-slate-100 rounded-xl font-bold tracking-widest uppercase border border-slate-600 transition-colors">Back To Menu</button>
+          {winnerSubheading && (
+            <p className="text-sm uppercase tracking-[0.18em] text-slate-400">{winnerSubheading}</p>
+          )}
+          {isAdventureMatch ? (
+            <>
+              {state.winner === 'player' && !isAdventureBossBattle ? (
+                <button onClick={handleAdvanceAdventure} className="w-full py-3 bg-[#38bdf8] hover:bg-[#22c7ff] text-slate-950 rounded-xl font-bold tracking-widest uppercase border border-sky-200/70 shadow-[0_0_24px_rgba(56,189,248,0.28)] transition-colors">Next Rival</button>
+              ) : (
+                <button onClick={state.winner === 'player' ? handleRestartAdventure : () => startAdventureBattle(adventureWinsCount)} className="w-full py-3 bg-[#38bdf8] hover:bg-[#22c7ff] text-slate-950 rounded-xl font-bold tracking-widest uppercase border border-sky-200/70 shadow-[0_0_24px_rgba(56,189,248,0.28)] transition-colors">
+                  {state.winner === 'player' ? 'Restart Adventure' : 'Retry Battle'}
+                </button>
+              )}
+              <button onClick={handleAdventureReturnToMenu} className="w-full py-3 bg-slate-900/92 hover:bg-slate-800 text-slate-100 rounded-xl font-bold tracking-widest uppercase border border-slate-600 transition-colors">Back To Menu</button>
+            </>
+          ) : (
+            <>
+              <button onClick={() => dispatch({ type: 'START_GAME', mode: state.gameMode, difficulty: state.difficulty, aiCharacterId: state.aiCharacterId, playerAiCharacterId: state.playerAiCharacterId })} className="w-full py-3 bg-[#38bdf8] hover:bg-[#22c7ff] text-slate-950 rounded-xl font-bold tracking-widest uppercase border border-sky-200/70 shadow-[0_0_24px_rgba(56,189,248,0.28)] transition-colors">Play Again</button>
+              <button onClick={() => dispatch({ type: 'RETURN_TO_MENU' })} className="w-full py-3 bg-slate-900/92 hover:bg-slate-800 text-slate-100 rounded-xl font-bold tracking-widest uppercase border border-slate-600 transition-colors">Back To Menu</button>
+            </>
+          )}
         </div>
       </div>
     );
@@ -1194,7 +1481,9 @@ export default function App() {
               </div>
               <div className="flex flex-col">
                  <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">{isAiMirror ? 'AI North' : 'Opponent'}</span>
-                 <span className="text-xs text-slate-200 font-mono flex items-center gap-1">Hand: {state.ai.hand.length}</span>
+                 <span className="text-xs text-slate-100 font-black tracking-[0.08em] uppercase">{currentOpponentCharacter?.name || AI_DIFFICULTY_LABELS[state.difficulty] || 'Opponent'}</span>
+                 <span className="text-[10px] text-slate-400">{opponentBadgeMeta}</span>
+                 <span className="text-[10px] text-slate-200 font-mono flex items-center gap-1">Hand: {state.ai.hand.length}</span>
               </div>
            </div>
 
@@ -1270,6 +1559,9 @@ export default function App() {
               </div>
               <div className="flex flex-col">
                  <span className="text-[10px] text-blue-300 font-bold uppercase tracking-wider">{isAiMirror ? 'AI South' : 'You'}</span>
+                 {isAiMirror && currentPlayerAiCharacter && (
+                   <span className="text-xs text-blue-100 font-black tracking-[0.08em] uppercase">{currentPlayerAiCharacter.name}</span>
+                 )}
                  <div className="flex gap-2">
                     <span className="text-xs text-sky-400 font-mono flex items-center gap-1"><Droplet size={10} fill="currentColor"/> {getAvailableMana(state.player.board, state, 'player')}</span>
                     {getManaPool(state, 'player').total > 0 && (

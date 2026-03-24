@@ -1,7 +1,7 @@
 {
   "name": "forgetfullfish",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.2.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -10,7 +10,9 @@
     "rules:check": "node scripts/rules-regression.mjs",
     "selfplay": "node scripts/train-self-play.mjs --minutes 30 --population 8 --games-per-seat 8 --concurrency 4",
     "selfplay:fast": "node scripts/train-self-play.mjs --minutes 3 --population 4 --games-per-seat 3 --concurrency 2",
-    "selfplay:boss": "node scripts/train-self-play.mjs --hours 2 --population 10 --games-per-seat 12 --concurrency 6 --hall-of-fame 4"
+    "selfplay:boss": "node scripts/train-self-play.mjs --hours 2 --population 10 --games-per-seat 12 --concurrency 6 --hall-of-fame 4",
+    "league": "node scripts/run-character-league.mjs --difficulty hard --games-per-seat 6",
+    "league:fast": "node scripts/run-character-league.mjs --difficulty hard --games-per-seat 2"
   },
   "dependencies": {
     "lucide-react": "^0.542.0",

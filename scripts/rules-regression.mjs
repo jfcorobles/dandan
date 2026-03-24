@@ -103,6 +103,15 @@ const makeState = (overrides = {}) => ({
   ai: { life: 20, hand: [], board: [], landsPlayed: 0 },
   ...overrides
 });
+const makeKnowledge = () => structuredClone(initialState.knowledge);
+const withKnownTop = (knowledge, viewer, cards) => {
+  knowledge[viewer].knownTop = cards.map(card => ({ id: card.id, name: card.name, cost: card.cost, blueRequirement: card.blueRequirement, isLand: card.isLand, type: card.type, manaCost: card.manaCost }));
+  return knowledge;
+};
+const withKnownHand = (knowledge, viewer, owner, cards) => {
+  knowledge[viewer].knownHands[owner] = cards.map(card => ({ id: card.id, name: card.name, cost: card.cost, blueRequirement: card.blueRequirement, isLand: card.isLand, type: card.type, manaCost: card.manaCost }));
+  return knowledge;
+};
 const tacticalPolicy = {
   aggression: 1,
   control: 1.1,
@@ -131,6 +140,28 @@ test('mulligan stops at seven', () => {
   const afterExtra = reducer(state, { type: 'MULLIGAN' });
   expect(afterExtra.mulliganCount === 7, 'mulligan count advanced past seven');
   expect(afterExtra.player.hand.map((card) => card.id).join(',') === handSnapshot, 'extra mulligan changed hand after the cap');
+});
+
+test('start game preserves free and adventure character metadata', () => {
+  const freeState = reducer(initialState, {
+    type: 'START_GAME',
+    mode: 'free',
+    difficulty: 'hard',
+    aiCharacterId: 'shark'
+  });
+  expect(freeState.gameMode === 'free', `expected free game mode, got ${freeState.gameMode}`);
+  expect(freeState.aiCharacterId === 'shark', `expected shark rival, got ${freeState.aiCharacterId}`);
+  expect(freeState.phase === 'mulligan', `free mode should start in mulligan, got ${freeState.phase}`);
+
+  const adventureState = reducer(initialState, {
+    type: 'START_GAME',
+    mode: 'adventure',
+    difficulty: 'medium',
+    aiCharacterId: 'leviathan'
+  });
+  expect(adventureState.gameMode === 'adventure', `expected adventure game mode, got ${adventureState.gameMode}`);
+  expect(adventureState.aiCharacterId === 'leviathan', `expected leviathan boss, got ${adventureState.aiCharacterId}`);
+  expect(adventureState.phase === 'mulligan', `adventure mode should start in mulligan, got ${adventureState.phase}`);
 });
 
 test('Haunted Fengraf sacrifices itself and can return Dandan', () => {
@@ -261,11 +292,39 @@ test('cycling from the prompt actually resolves, taps mana, and draws', () => {
   expect(state.player.hand.some((card) => card.id === drawCard.id), 'Cycling did not draw a replacement card');
 });
 
-test('AI Predict uses the actual top card instead of blind-guessing Dandan', () => {
+test('AI Predict uses only cards it actually knows are on top', () => {
   const predict = makeCard(CARDS.PREDICT, { id: 'ai-predict', owner: 'ai' });
   const topCard = makeCard(CARDS.BRAINSTORM, { id: 'predict-top' });
   const drawOne = makeCard(CARDS.ISLAND_1, { id: 'predict-draw-one', owner: 'ai' });
   const drawTwo = makeCard(CARDS.ACCUMULATED_KNOWLEDGE, { id: 'predict-draw-two', owner: 'ai' });
+  const knowledge = withKnownTop(makeKnowledge(), 'ai', [topCard]);
+
+  let state = makeState({
+    turn: 'ai',
+    priority: null,
+    stackResolving: true,
+    deck: [drawOne, drawTwo, topCard],
+    knowledge,
+    stack: [{ card: predict, controller: 'ai', target: null }],
+    ai: {
+      life: 20,
+      hand: [],
+      board: [],
+      landsPlayed: 0
+    }
+  });
+
+  state = reducer(state, { type: 'RESOLVE_TOP_STACK' });
+
+  expect(state.ai.hand.length === 2, `AI Predict should have drawn 2 cards on a known hit, got ${state.ai.hand.length}`);
+  expect(state.graveyard.some((card) => card.id === topCard.id), 'Predict did not mill the known top card');
+});
+
+test('AI Predict does not cheat on an unknown top card', () => {
+  const predict = makeCard(CARDS.PREDICT, { id: 'ai-predict-fair', owner: 'ai' });
+  const topCard = makeCard(CARDS.CAPTURE, { id: 'predict-hidden-top' });
+  const drawOne = makeCard(CARDS.ISLAND_1, { id: 'predict-fair-draw-one', owner: 'ai' });
+  const drawTwo = makeCard(CARDS.ISLAND_2, { id: 'predict-fair-draw-two', owner: 'ai' });
 
   let state = makeState({
     turn: 'ai',
@@ -283,8 +342,8 @@ test('AI Predict uses the actual top card instead of blind-guessing Dandan', () 
 
   state = reducer(state, { type: 'RESOLVE_TOP_STACK' });
 
-  expect(state.ai.hand.length === 2, `AI Predict should have drawn 2 cards on a known hit, got ${state.ai.hand.length}`);
-  expect(state.graveyard.some((card) => card.id === topCard.id), 'Predict did not mill the known top card');
+  expect(state.ai.hand.length === 1, `AI Predict should only draw 1 when the top card is unknown, got ${state.ai.hand.length}`);
+  expect(state.graveyard.some((card) => card.id === topCard.id), 'Predict still needs to mill the top card');
 });
 
 test('direct land activation works for AI-only actions', () => {
@@ -486,12 +545,14 @@ test('easy AI uses Mental Note to deny a powerful next-turn topdeck', () => {
   const aiIsland = makeCard(CARDS.ISLAND_1, { id: 'easy-note-island' });
   const lowCard = makeCard(CARDS.ISLAND_2, { id: 'easy-note-low' });
   const topBomb = makeCard(CARDS.CAPTURE, { id: 'easy-note-top-bomb' });
+  const knowledge = withKnownTop(makeKnowledge(), 'ai', [topBomb, lowCard]);
 
   const state = makeState({
     turn: 'ai',
     phase: 'main2',
     priority: 'ai',
     deck: [lowCard, topBomb],
+    knowledge,
     ai: {
       life: 20,
       hand: [mentalNote],
@@ -701,11 +762,13 @@ test('hard AI does not jam Dandan into a known open Memory Lapse without protect
   const aiDandan = makeCard(CARDS.DANDAN, { id: 'no-jam-dandan', owner: 'ai' });
   const aiBrainstorm = makeCard(CARDS.BRAINSTORM, { id: 'no-jam-brainstorm', owner: 'ai' });
   const playerLapse = makeCard(CARDS.MEMORY_LAPSE, { id: 'no-jam-lapse', owner: 'player' });
+  const knowledge = withKnownHand(makeKnowledge(), 'ai', 'player', [playerLapse]);
 
   const state = makeState({
     turn: 'ai',
     phase: 'main1',
     priority: 'ai',
+    knowledge,
     ai: {
       life: 20,
       hand: [aiDandan, aiBrainstorm],
@@ -739,11 +802,13 @@ test('hard AI jams Dandan when it can win the immediate counter war', () => {
   const aiDandan = makeCard(CARDS.DANDAN, { id: 'jam-dandan', owner: 'ai' });
   const aiLapse = makeCard(CARDS.MEMORY_LAPSE, { id: 'jam-ai-lapse', owner: 'ai' });
   const playerLapse = makeCard(CARDS.MEMORY_LAPSE, { id: 'jam-player-lapse', owner: 'player' });
+  const knowledge = withKnownHand(makeKnowledge(), 'ai', 'player', [playerLapse]);
 
   const state = makeState({
     turn: 'ai',
     phase: 'main2',
     priority: 'ai',
+    knowledge,
     ai: {
       life: 20,
       hand: [aiDandan, aiLapse],
@@ -896,6 +961,108 @@ test('Metamorphose on Control Magic returns the Dandan to its owner', () => {
   const returnedDandan = state.ai.board.find((card) => card.id === stolenDandan.id);
   expect(returnedDandan.controlledByAuraId === null, 'Returned Dandan kept a stale aura link');
   expect(returnedDandan.summoningSickness === true, 'Returned Dandan should have summoning sickness after control changes back');
+});
+
+test('zone changes reset a transformed Dandan back to Island dependency', () => {
+  const aiIslands = [
+    makeCard(CARDS.ISLAND_1, { id: 'reset-fish-ai-island-1' }),
+    makeCard(CARDS.ISLAND_2, { id: 'reset-fish-ai-island-2' }),
+    makeCard(CARDS.ISLAND_3, { id: 'reset-fish-ai-island-3' })
+  ];
+  const playerIslands = [
+    makeCard(CARDS.ISLAND_1, { id: 'reset-fish-player-island-1' }),
+    makeCard(CARDS.ISLAND_2, { id: 'reset-fish-player-island-2' })
+  ];
+  const dandan = makeCard(CARDS.DANDAN, {
+    id: 'reset-fish-dandan',
+    owner: 'player',
+    summoningSickness: false
+  });
+  const spray = makeCard(CARDS.CRYSTAL_SPRAY, { id: 'reset-fish-spray', owner: 'ai' });
+  const unsub = makeCard(CARDS.UNSUBSTANTIATE, { id: 'reset-fish-unsub', owner: 'player' });
+
+  let state = makeState({
+    turn: 'ai',
+    priority: 'ai',
+    ai: {
+      life: 20,
+      hand: [spray],
+      board: aiIslands,
+      landsPlayed: 0
+    },
+    player: {
+      life: 20,
+      hand: [unsub],
+      board: [...playerIslands, dandan],
+      landsPlayed: 0
+    }
+  });
+
+  state = reducer(state, { type: 'CAST_SPELL', player: 'ai', cardId: spray.id, target: dandan });
+  state = reducer(state, { type: 'CAST_SPELL', player: 'player', cardId: unsub.id, target: dandan });
+  state = reducer(state, { type: 'PASS_PRIORITY', player: 'ai' });
+  state = reducer(state, { type: 'PASS_PRIORITY', player: 'player' });
+  expect(state.stackResolving === true, 'Stack did not start resolving for transformed Dandan reset test');
+  state = reducer(state, { type: 'RESOLVE_TOP_STACK' });
+  state = reducer(state, { type: 'PASS_PRIORITY', player: 'ai' });
+  state = reducer(state, { type: 'PASS_PRIORITY', player: 'player' });
+  state = reducer(state, { type: 'RESOLVE_TOP_STACK' });
+
+  const returned = state.player.hand.find((card) => card.id === dandan.id);
+  expect(Boolean(returned), 'Dandan was not returned to hand after Unsubstantiate');
+  expect(returned.dandanLandType === 'Island', 'Returned Dandan kept a stale transformed dependency after leaving the battlefield');
+});
+
+test('zone changes reset a transformed Island back to being an Island', () => {
+  const playerIsland = makeCard(CARDS.ISLAND_1, { id: 'reset-land-island' });
+  const aiIslands = [
+    makeCard(CARDS.ISLAND_2, { id: 'reset-land-ai-a' }),
+    makeCard(CARDS.ISLAND_3, { id: 'reset-land-ai-b' }),
+    makeCard(CARDS.ISLAND_4, { id: 'reset-land-ai-c' }),
+    makeCard(CARDS.ISLAND_1, { id: 'reset-land-ai-d' }),
+    makeCard(CARDS.ISLAND_2, { id: 'reset-land-ai-e' })
+  ];
+  const spray = makeCard(CARDS.CRYSTAL_SPRAY, { id: 'reset-land-spray', owner: 'ai' });
+  const metamorphose = makeCard(CARDS.METAMORPHOSE, { id: 'reset-land-meta', owner: 'ai' });
+
+  let state = makeState({
+    turn: 'ai',
+    priority: 'ai',
+    ai: {
+      life: 20,
+      hand: [spray, metamorphose],
+      board: aiIslands,
+      landsPlayed: 0
+    },
+    player: {
+      life: 20,
+      hand: [],
+      board: [playerIsland],
+      landsPlayed: 0
+    }
+  });
+
+  state = reducer(state, { type: 'CAST_SPELL', player: 'ai', cardId: spray.id, target: playerIsland });
+  state = reducer(state, { type: 'PASS_PRIORITY', player: 'player' });
+  state = reducer(state, { type: 'PASS_PRIORITY', player: 'ai' });
+  state = reducer(state, { type: 'RESOLVE_TOP_STACK' });
+
+  const transformedIsland = state.player.board.find((card) => card.id === playerIsland.id);
+  expect(transformedIsland?.landType === 'Swamp', 'Island should be transformed before the zone-change reset check');
+
+  state.priority = 'ai';
+  state.turn = 'ai';
+  state.phase = 'main2';
+  state = reducer(state, { type: 'CAST_SPELL', player: 'ai', cardId: metamorphose.id, target: transformedIsland });
+  state = reducer(state, { type: 'PASS_PRIORITY', player: 'player' });
+  state = reducer(state, { type: 'PASS_PRIORITY', player: 'ai' });
+  state = reducer(state, { type: 'RESOLVE_TOP_STACK' });
+
+  const topCard = state.deck[state.deck.length - 1];
+  expect(topCard?.id === playerIsland.id, 'Metamorphosed Island did not go to the top of the library');
+  expect(topCard.landType === 'Island', 'Island kept a stale transformed land type after leaving the battlefield');
+  expect(topCard.blueSources === 1, 'Island did not regain blue mana production after leaving the battlefield');
+  expect(topCard.isSwamp === false, 'Island kept stale Swamp state after leaving the battlefield');
 });
 
 test('older Control Magic resumes control when the newer aura leaves', () => {
