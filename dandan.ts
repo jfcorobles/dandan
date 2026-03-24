@@ -190,8 +190,9 @@ const getSpellPriority = (card, policy) => {
 const getGroupedList = (zoneList) => {
   const groups = {};
   zoneList.forEach(c => {
-     if(!groups[c.name]) groups[c.name] = { ...c, count: 0 };
-     groups[c.name].count++;
+     const key = `${c.name}|${c.fullImage || c.image || ''}`;
+     if(!groups[key]) groups[key] = { ...c, count: 0, groupKey: key };
+     groups[key].count++;
   });
   return Object.values(groups).sort((a,b) => b.count - a.count);
 };
@@ -573,8 +574,20 @@ export default function App() {
       const topSpell = state.stack[state.stack.length - 1];
       if (topSpell.controller === opponent) {
         const lapse = state[actor].hand.find(c => c.name === 'Memory Lapse');
-        if (canCast(lapse) && topSpell.card.name === DANDAN_NAME) {
-          if (policy.counterBias < 0.62 || shouldMakeMistake(difficulty, 0.05, policy)) {
+        const lapseValue = getSpellPriority(topSpell.card, policy) + (state.turn === opponent ? 2.5 : 0);
+        const shouldMemoryLapse =
+          canCast(lapse) &&
+          (
+            topSpell.card.name === DANDAN_NAME ||
+            topSpell.card.name === 'Control Magic' ||
+            topSpell.card.name === 'Capture of Jingzhou' ||
+            topSpell.card.name === "Day's Undoing" ||
+            state.turn === opponent ||
+            lapseValue >= 4
+          );
+
+        if (shouldMemoryLapse) {
+          if (policy.counterBias < 0.45 || shouldMakeMistake(difficulty, 0.04, policy)) {
             dispatch({ type: 'PASS_PRIORITY', player: actor });
             return;
           }
@@ -682,7 +695,7 @@ export default function App() {
         return;
       }
       if (card.isLand && canCycle) {
-        dispatch({ type: 'CYCLE_CARD', player: 'player', cardId: card.id });
+        dispatch({ type: 'PROMPT_HAND_LAND_ACTION', cardId: card.id });
         return;
       }
       if (canPlay) {
@@ -987,7 +1000,11 @@ export default function App() {
          <div className="absolute inset-0 bg-black/80 z-[100] flex flex-col items-center justify-center p-4 backdrop-blur-md">
             <div className="bg-slate-900 p-6 rounded-xl border border-slate-700 shadow-2xl w-full max-w-sm flex flex-col items-center text-center">
                <h3 className="font-arena-display text-xl font-bold text-blue-400 mb-2 tracking-[0.12em] uppercase">{state.pendingAction.cardName}</h3>
-               <p className="text-slate-300 text-sm mb-6">Choose whether to play this land or cycle it.</p>
+               <p className="text-slate-300 text-sm mb-6">
+                 {state.pendingAction.canPlay && state.pendingAction.canCycle
+                   ? 'Choose whether to play this land or cycle it.'
+                   : `Cycle this land for ${state.pendingAction.cyclingCost}?`}
+               </p>
                <div className="grid grid-cols-1 gap-3 w-full">
                   {state.pendingAction.canPlay && (
                     <button onClick={() => dispatch({ type: 'PLAY_LAND', player: 'player', cardId: state.pendingAction.cardId })} className="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl transition-colors">Play Land</button>
@@ -1032,7 +1049,7 @@ export default function App() {
              
              <div className="flex-1 overflow-y-auto custom-scrollbar flex flex-wrap content-start justify-center gap-6 pb-20">
                 {getGroupedList(state[viewingZone]).map(group => (
-                   <div key={group.name} className="relative group flex flex-col items-center animate-in zoom-in-95 duration-300">
+                   <div key={group.groupKey || `${group.name}-${group.count}`} className="relative group flex flex-col items-center animate-in zoom-in-95 duration-300">
                       <Card card={group} official={useOfficialCards} onZoom={setZoomedCard} />
                       <div className="absolute -top-3 -right-3 bg-blue-600 text-white font-black px-3 py-1 rounded-full border-2 border-slate-900 shadow-xl z-10 text-sm">
                          x{group.count}
@@ -1230,10 +1247,12 @@ export default function App() {
 
            <div className={`${isAiMirror ? 'h-[32%]' : 'h-[45%]'} min-h-[108px] sm:min-h-[132px] flex items-center px-3 sm:px-4 overflow-visible`}>
               <div className="w-full overflow-x-auto overflow-y-hidden custom-scrollbar py-3">
-                <div className="flex items-start gap-2 sm:gap-3 mx-auto min-w-max">
-                {groupLands(state.ai.board).map((group, i) => (
-                   <StackedLandGroup key={i} lands={group} official={useOfficialCards} state={state} zone="board" onZoom={setZoomedCard} onClick={(card) => handleCardClick(card, 'board')} />
-                ))}
+                <div className="flex justify-center min-w-full">
+                  <div className="flex items-start gap-2 sm:gap-3 w-max">
+                  {groupLands(state.ai.board).map((group, i) => (
+                     <StackedLandGroup key={i} lands={group} official={useOfficialCards} state={state} zone="board" onZoom={setZoomedCard} onClick={(card) => handleCardClick(card, 'board')} />
+                  ))}
+                  </div>
                 </div>
               </div>
            </div>
@@ -1290,10 +1309,12 @@ export default function App() {
            </div>
            <div className="h-[25%] min-h-[108px] sm:min-h-[132px] flex items-center px-3 sm:px-4 mt-1 overflow-visible">
               <div className="w-full overflow-x-auto overflow-y-hidden custom-scrollbar py-3">
-                <div className="flex items-start gap-2 sm:gap-3 mx-auto min-w-max">
-                {groupLands(state.player.board).map((group, i) => (
-                   <StackedLandGroup key={i} lands={group} official={useOfficialCards} state={state} zone="board" onZoom={setZoomedCard} onClick={(card) => handleCardClick(card, 'board')} activatablePlayer="player" />
-                ))}
+                <div className="flex justify-center min-w-full">
+                  <div className="flex items-start gap-2 sm:gap-3 w-max">
+                  {groupLands(state.player.board).map((group, i) => (
+                     <StackedLandGroup key={i} lands={group} official={useOfficialCards} state={state} zone="board" onZoom={setZoomedCard} onClick={(card) => handleCardClick(card, 'board')} activatablePlayer="player" />
+                  ))}
+                  </div>
                 </div>
               </div>
            </div>
