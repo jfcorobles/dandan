@@ -762,7 +762,7 @@ export default function App() {
         <div className="absolute left-1/2 bottom-[-4rem] -translate-x-1/2 w-72 h-32 rounded-[999px] bg-cyan-300/10 blur-3xl" />
 
         <div className="relative z-10 w-full max-w-md mx-auto h-full flex items-center justify-center">
-          <div className="relative w-full max-h-full overflow-hidden rounded-[2.1rem] bg-slate-950/66 backdrop-blur-3xl shadow-[0_28px_80px_rgba(2,6,23,0.68)]">
+          <div className="relative w-full max-h-full overflow-y-visible rounded-[2.1rem] bg-slate-950/66 backdrop-blur-3xl shadow-[0_28px_80px_rgba(2,6,23,0.68)]">
             <div className="absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-cyan-100/70 to-transparent" />
             <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.06)_0%,rgba(255,255,255,0.02)_40%,rgba(255,255,255,0)_100%)] pointer-events-none" />
             <div className="absolute -top-20 right-[-1.5rem] w-40 h-40 rounded-full bg-cyan-300/12 blur-3xl pointer-events-none" />
