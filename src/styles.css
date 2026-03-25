@@ -283,6 +283,73 @@ textarea,
   animation: pass-button-glow 1.55s ease-in-out infinite;
 }
 
+.landing-title-shell {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  padding-inline: 0.18em;
+  overflow: visible;
+  isolation: isolate;
+  filter:
+    drop-shadow(0 0 16px rgba(37, 99, 235, 0.52))
+    drop-shadow(0 0 34px rgba(59, 130, 246, 0.4))
+    drop-shadow(0 0 64px rgba(14, 165, 233, 0.24));
+}
+
+.landing-title-glow,
+.landing-title-core,
+.landing-title-fill {
+  grid-area: 1 / 1;
+  white-space: inherit;
+}
+
+.landing-title-glow {
+  pointer-events: none;
+  color: rgba(56, 189, 248, 0.92);
+  opacity: 0.96;
+  transform: translateZ(0) scale(1.015);
+  filter: blur(10px);
+}
+
+.landing-title-core {
+  pointer-events: none;
+  color: rgba(37, 99, 235, 0.82);
+  opacity: 0.92;
+  transform: translateZ(0) scale(1.01);
+  filter: blur(3px);
+}
+
+.landing-title-fill {
+  position: relative;
+  z-index: 2;
+  color: #fff;
+  text-shadow:
+    0 0 16px rgba(8, 15, 33, 0.96),
+    0 0 30px rgba(18, 52, 128, 0.66),
+    0 0 62px rgba(20, 51, 135, 0.42);
+  -webkit-text-stroke: 0.01em rgba(255, 255, 255, 0.08);
+}
+
+@supports (-webkit-touch-callout: none) {
+  .landing-title-shell {
+    filter:
+      drop-shadow(0 0 18px rgba(37, 99, 235, 0.62))
+      drop-shadow(0 0 42px rgba(59, 130, 246, 0.52))
+      drop-shadow(0 0 88px rgba(14, 165, 233, 0.3));
+  }
+
+  .landing-title-glow {
+    color: rgba(56, 189, 248, 1);
+    opacity: 1;
+    filter: blur(12px);
+  }
+
+  .landing-title-core {
+    color: rgba(37, 99, 235, 0.9);
+    filter: blur(4px);
+  }
+}
+
 .landing-water-ripple {
   position: absolute;
   transform: translate(-50%, -50%);

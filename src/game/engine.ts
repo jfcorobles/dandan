@@ -2546,7 +2546,7 @@ const getTacticalActionCandidates = (
     return finalizeCandidateActions(candidateMap, breadth);
   }
 
-  if (state.turn === actor && state.phase !== 'upkeep' && state[actor].landsPlayed === 0) {
+  if (state.turn === actor && ['main1', 'main2'].includes(state.phase) && state[actor].landsPlayed === 0) {
     const lands = [...state[actor].hand.filter(card => card.isLand && (!isTortoise(state, actor) || !isIslandLandCard(card)))]
       .sort((left, right) => getLandPlayScore(state, actor, right) - getLandPlayScore(state, actor, left))
       .slice(0, 2);

@@ -1654,13 +1654,12 @@ const LandingScreen = ({
                 <div className={`mb-7 text-center transition-all duration-700 ease-out ${
                   titleVisible ? 'translate-y-0 opacity-100 scale-100' : 'translate-y-5 opacity-0 scale-[0.97]'
                 }`}>
-                <h1
-                  className="font-arena-display text-4xl sm:text-5xl font-black text-white whitespace-nowrap"
-                  style={{
-                    textShadow: '0 0 14px rgba(8,15,33,0.96), 0 0 28px rgba(18,52,128,0.82), 0 0 56px rgba(20,51,135,0.7), 0 0 96px rgba(18,52,128,0.5), 0 0 150px rgba(16,42,110,0.34)'
-                  }}
-                >
-                  Forgetfull Fish
+                <h1 className="font-arena-display text-4xl sm:text-5xl font-black whitespace-nowrap leading-none">
+                  <span className="landing-title-shell">
+                    <span aria-hidden="true" className="landing-title-glow">Forgetfull Fish</span>
+                    <span aria-hidden="true" className="landing-title-core">Forgetfull Fish</span>
+                    <span className="landing-title-fill">Forgetfull Fish</span>
+                  </span>
                 </h1>
                 <p
                   className="mt-2 font-arena-display text-[0.86rem] sm:text-[0.95rem] tracking-[0.18em] text-white/90"

@@ -966,6 +966,43 @@ test('combat deaths clear attack and block markers before hitting the graveyard'
   expect(deadBlocker.blocking === false, 'Dead blocker should not keep the blocking marker in graveyard');
 });
 
+test('AI passes declare blockers instead of trying to play a land after the player chooses no blocks', () => {
+  const aiAttacker = makeCard(CARDS.DANDAN, {
+    id: 'no-block-pass-ai-attacker',
+    owner: 'ai',
+    summoningSickness: false,
+    attacking: true
+  });
+  const aiIslandInPlay = makeCard(CARDS.ISLAND_1, { id: 'no-block-pass-ai-island-in-play' });
+  const aiIslandInHand = makeCard(CARDS.ISLAND_2, { id: 'no-block-pass-ai-island-in-hand', owner: 'ai' });
+  const playerIsland = makeCard(CARDS.ISLAND_3, { id: 'no-block-pass-player-island' });
+
+  let state = makeState({
+    turn: 'ai',
+    phase: 'declare_blockers',
+    priority: 'ai',
+    consecutivePasses: 1,
+    ai: {
+      life: 20,
+      hand: [aiIslandInHand],
+      board: [aiIslandInPlay, aiAttacker],
+      landsPlayed: 0
+    },
+    player: {
+      life: 20,
+      hand: [],
+      board: [playerIsland],
+      landsPlayed: 0
+    }
+  });
+
+  const action = chooseAiAction(state, 'ai', 'medium', tacticalPolicy);
+  expect(action.type === 'PASS_PRIORITY', `AI should pass in declare blockers here, got ${action.type}`);
+
+  state = reducer(state, action);
+  expect(state.phase === 'main2', `AI passing after no blocks should advance to main2, got ${state.phase}`);
+});
+
 test('AI always declares a legal Dandan attack when combat is open', () => {
   const aiDandan = makeCard(CARDS.DANDAN, {
     id: 'ai-attacker',
