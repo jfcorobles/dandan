@@ -15,11 +15,14 @@
     "league:fast": "node scripts/run-character-league.mjs --difficulty hard --games-per-seat 2"
   },
   "dependencies": {
+    "jquery": "^4.0.0",
+    "jquery.ripples": "^0.6.3",
     "lucide-react": "^0.542.0",
     "react": "^19.1.1",
     "react-dom": "^19.1.1"
   },
   "devDependencies": {
+    "@types/jquery": "^4.0.0",
     "@types/react": "^19.1.10",
     "@types/react-dom": "^19.1.7",
     "@vitejs/plugin-react": "^5.0.2",

@@ -1,5 +1,7 @@
 ﻿import React, { useState, useEffect, useRef, useReducer } from 'react';
 import { Play, SkipForward, Activity, Layers, Skull, Image as ImageIcon, Settings, X, Sun, Moon, Swords, Volume2, VolumeX, ArrowLeftRight, Target, Droplet, Shield, CloudRain, LogOut } from 'lucide-react';
+import $ from 'jquery';
+import 'jquery.ripples';
 import { AI_CHARACTERS, AI_DIFFICULTIES, AI_DIFFICULTY_LABELS, AI_SPEED, CARDS, DANDAN_NAME, DEFAULT_AI_CHARACTER_ID, LAND_TYPE_CHOICES, PREDICT_OPTIONS, SHARED_DECK_SIZE, canDandanAttackDefender, checkHasActions, chooseAiAction, controlsIsland, createGameReducer, getAiCharacter, getAiPendingActions, getAiPolicyForActor, getAvailableMana, getManaPool, initialState, isActivatable, isCastable, isCyclable, isValidTarget } from './src/game/engine';
 import archivistPortrait from './img/Archivist.png';
 import cartographerPortrait from './img/Cartographer.png';
@@ -13,6 +15,8 @@ import tortoisePortrait from './img/Tortoise.png';
 import undertowPortrait from './img/Undertow.png';
 import wall1Background from './img/wall1.jpg';
 import wall2Background from './img/wall2.jpg';
+import wall3Background from './img/wall3.png';
+import wall4Background from './img/wall4.png';
 
 // --- ADVANCED AUDIO ENGINE ---
 const AudioEngine = {
@@ -270,7 +274,7 @@ const ADVENTURE_MAP_LAYOUT = [
 const ADVENTURE_FIXED_DIFFICULTY = 'hard';
 const ADVENTURE_BOSS_ID = ADVENTURE_ROUTE[ADVENTURE_ROUTE.length - 1];
 const RIVAL_PROGRESS_STORAGE_KEY = 'forgetful-fish-rival-progress-v1';
-const LANDING_BACKGROUNDS = [wall1Background, wall2Background];
+const LANDING_BACKGROUNDS = [wall1Background, wall2Background, wall3Background, wall4Background];
 const LANDING_BACKGROUND_STORAGE_KEY = 'forgetful-fish-landing-bg-v1';
 const clampAdventureProgress = (value) => Math.max(0, Math.min(Number.isFinite(value) ? value : 0, ADVENTURE_ROUTE.length));
 const getRandomLandingBackground = (exclude = null) => {
@@ -725,8 +729,8 @@ const HomeActionButton = ({ label, onClick, className = '', labelClassName = '' 
     onClick={onClick}
     className={`group relative overflow-hidden transition-all duration-200 hover:-translate-y-[2px] active:translate-y-0 ${className}`.trim()}
   >
-    <div className="pointer-events-none absolute inset-[1px] rounded-[inherit] bg-[linear-gradient(180deg,rgba(100,116,139,0.42),rgba(51,65,85,0.34))]" />
-    <div className="pointer-events-none absolute inset-0 rounded-[inherit] opacity-90 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08),0_0_18px_rgba(125,211,252,0.12),0_0_40px_rgba(14,165,233,0.08)] transition-opacity duration-200 group-hover:opacity-100" />
+    <div className="pointer-events-none absolute inset-[1px] rounded-[inherit] bg-[linear-gradient(180deg,rgba(51,65,85,0.54),rgba(15,23,42,0.42))]" />
+    <div className="pointer-events-none absolute inset-0 rounded-[inherit] opacity-100 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08),0_0_20px_rgba(56,189,248,0.08),0_0_28px_rgba(15,23,42,0.12)] transition-opacity duration-200 group-hover:opacity-100" />
     <div className="absolute inset-0 opacity-0 transition-opacity duration-200 group-hover:opacity-100 bg-[linear-gradient(90deg,rgba(255,255,255,0.08),rgba(255,255,255,0.02))]" />
     <div className="relative flex items-center justify-center">
       <div className={`min-w-0 w-full text-center font-arena-display ${labelClassName}`.trim()}>{label}</div>
@@ -859,19 +863,19 @@ const HomeMenuPanel = ({ variantId, onAdventure, onQuickGame, onSettings }) => {
       <HomeActionButton
         label="Adventure"
         onClick={onAdventure}
-        className="w-full max-w-[15.75rem] min-h-[56px] rounded-full bg-slate-700/58 p-0 shadow-[0_18px_36px_rgba(15,23,42,0.28)] hover:bg-slate-700/68"
+        className="w-full max-w-[15.75rem] min-h-[56px] rounded-full bg-slate-800/44 p-0 shadow-[0_18px_36px_rgba(15,23,42,0.24)] hover:bg-slate-800/54"
         labelClassName="text-[1.2rem] sm:text-[1.32rem] tracking-[0.02em] text-white"
       />
       <HomeActionButton
         label="Quick Game"
         onClick={onQuickGame}
-        className="w-full max-w-[15.75rem] min-h-[56px] rounded-full bg-slate-700/58 p-0 shadow-[0_18px_36px_rgba(15,23,42,0.28)] hover:bg-slate-700/68"
+        className="w-full max-w-[15.75rem] min-h-[56px] rounded-full bg-slate-800/44 p-0 shadow-[0_18px_36px_rgba(15,23,42,0.24)] hover:bg-slate-800/54"
         labelClassName="text-[1.2rem] sm:text-[1.32rem] tracking-[0.02em] text-white"
       />
       <HomeActionButton
         label="Settings"
         onClick={onSettings}
-        className="w-full max-w-[15.75rem] min-h-[56px] rounded-full bg-slate-700/58 p-0 shadow-[0_18px_36px_rgba(15,23,42,0.28)] hover:bg-slate-700/68"
+        className="w-full max-w-[15.75rem] min-h-[56px] rounded-full bg-slate-800/44 p-0 shadow-[0_18px_36px_rgba(15,23,42,0.24)] hover:bg-slate-800/54"
         labelClassName="text-[1.2rem] sm:text-[1.32rem] tracking-[0.02em] text-white"
       />
     </div>
@@ -890,20 +894,16 @@ const AdventureMenuPanel = ({
   onStartAdventure,
   onRestartAdventure
 }) => (
-  <div className="grid gap-4 font-arena-display lg:grid-cols-[minmax(0,1.35fr)_300px]">
-    <div className="rounded-[1.6rem] bg-white/[0.08] p-4 shadow-[0_24px_54px_rgba(2,6,23,0.28)] backdrop-blur-xl">
-      <div className="flex items-center justify-between gap-4 mb-4">
-        <div>
-          <div className="text-[11px] uppercase tracking-[0.24em] text-slate-300">Adventure</div>
-          <div className="mt-1 text-xl sm:text-2xl text-white">Rival Route</div>
-        </div>
-        <div className="text-right">
-          <div className="text-[10px] uppercase tracking-[0.18em] text-slate-300/75">Progress</div>
-          <div className="text-lg text-white">{Math.min(adventureWinsCount, ADVENTURE_ROUTE.length)}/{ADVENTURE_ROUTE.length}</div>
+  <div className="grid gap-3 font-arena-display sm:gap-4 lg:grid-cols-[minmax(0,1.35fr)_300px]">
+    <div className="rounded-[1.6rem] bg-white/[0.08] p-3 shadow-[0_24px_54px_rgba(2,6,23,0.28)] backdrop-blur-xl sm:p-4">
+      <div className="mb-3 flex items-center justify-between gap-4 sm:mb-4">
+        <div className="text-xl sm:text-2xl text-white">Rival Route</div>
+        <div className="rounded-full bg-slate-950/64 px-3 py-1 text-sm uppercase tracking-[0.16em] text-slate-100 shadow-[0_10px_22px_rgba(15,23,42,0.24)]">
+          {Math.min(adventureWinsCount, ADVENTURE_ROUTE.length)}/{ADVENTURE_ROUTE.length}
         </div>
       </div>
 
-      <div className="relative aspect-[4/5] sm:aspect-[16/10] rounded-[1.45rem] overflow-hidden bg-[linear-gradient(180deg,rgba(15,23,42,0.18),rgba(15,23,42,0.36))] shadow-[inset_0_1px_0_rgba(255,255,255,0.12)] backdrop-blur-xl">
+      <div className="relative h-[250px] sm:h-[296px] lg:h-auto lg:aspect-[16/10] rounded-[1.45rem] overflow-hidden bg-[linear-gradient(180deg,rgba(15,23,42,0.18),rgba(15,23,42,0.36))] shadow-[inset_0_1px_0_rgba(255,255,255,0.12)] backdrop-blur-xl">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.18),transparent_56%)]" />
         <div className="absolute inset-0 opacity-[0.08]" style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,0.18) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.18) 1px, transparent 1px)', backgroundSize: '44px 44px' }} />
         <svg viewBox="0 0 100 100" className="absolute inset-0 w-full h-full" preserveAspectRatio="none" aria-hidden="true">
@@ -939,7 +939,7 @@ const AdventureMenuPanel = ({
                       className={`h-11 w-11 sm:h-14 sm:w-14 rounded-full object-cover shadow-[0_8px_18px_rgba(2,6,23,0.28)] ${isLocked ? 'opacity-45 grayscale' : ''}`}
                     />
                     {isCurrentStage && (
-                      <div className="absolute -top-2 left-1/2 -translate-x-1/2 rounded-full bg-amber-300/96 px-1.5 py-0.5 text-[8px] uppercase tracking-[0.16em] text-slate-950 shadow-[0_10px_22px_rgba(251,191,36,0.34)]">
+                      <div className="absolute -top-2 left-1/2 -translate-x-1/2 rounded-full bg-slate-950/88 px-1.5 py-0.5 text-[8px] uppercase tracking-[0.16em] text-amber-200 shadow-[0_10px_22px_rgba(251,191,36,0.34)] ring-1 ring-amber-300/45">
                         Next
                       </div>
                     )}
@@ -953,9 +953,11 @@ const AdventureMenuPanel = ({
                     <div className={`text-[8px] sm:text-[10px] uppercase tracking-[0.12em] leading-tight ${isLocked ? 'text-slate-400/70' : 'text-white'}`}>
                       {character.name}
                     </div>
-                    <div className="text-[7px] sm:text-[9px] uppercase tracking-[0.14em] text-slate-300/80">
-                      {isLocked ? 'Locked' : isCleared ? 'Cleared' : isCurrentStage ? 'Current' : 'Ahead'}
-                    </div>
+                    {!isLocked && (
+                      <div className="text-[7px] sm:text-[9px] uppercase tracking-[0.14em] text-slate-300/80">
+                        {isCleared ? 'Cleared' : isCurrentStage ? 'Current' : 'Ahead'}
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -965,7 +967,7 @@ const AdventureMenuPanel = ({
       </div>
     </div>
 
-    <div className="rounded-[1.6rem] bg-white/[0.08] p-5 shadow-[0_24px_54px_rgba(2,6,23,0.28)] backdrop-blur-xl">
+    <div className="rounded-[1.6rem] bg-white/[0.08] p-4 shadow-[0_24px_54px_rgba(2,6,23,0.28)] backdrop-blur-xl sm:p-5">
       <div>
         <div className="flex items-center gap-3">
           <img
@@ -988,7 +990,7 @@ const AdventureMenuPanel = ({
           </div>
         </div>
 
-        <div className="mt-5">
+        <div className="mt-4 sm:mt-5">
           <div className="flex items-center justify-between text-[10px] uppercase tracking-[0.18em] text-slate-300/80">
             <span>Progress</span>
             <span>{Math.min(adventureWinsCount, ADVENTURE_ROUTE.length)}/{ADVENTURE_ROUTE.length}</span>
@@ -1001,17 +1003,18 @@ const AdventureMenuPanel = ({
           </div>
         </div>
 
-        <div className="mt-6 grid gap-3">
+        <div className="mt-5 grid gap-3 sm:mt-6">
           <div className="grid grid-cols-[1fr_2fr] items-stretch gap-3">
             <button
               onClick={onBack}
-              className="flex min-h-[54px] h-full items-center justify-center rounded-2xl bg-slate-950/92 px-4 py-4 text-sm uppercase tracking-[0.08em] text-slate-100 shadow-[0_18px_34px_rgba(2,6,23,0.42)] transition-colors hover:bg-slate-900"
+              className="flex min-h-[52px] h-full items-center justify-center gap-1.5 rounded-2xl bg-slate-950/92 px-3 py-3 font-arena-display text-[0.92rem] uppercase tracking-[0.08em] text-slate-100 shadow-[0_18px_34px_rgba(2,6,23,0.42)] transition-colors hover:bg-slate-900 sm:min-h-[54px] sm:px-4 sm:py-4 sm:text-sm"
             >
-              Back
+              <span aria-hidden="true" className="text-[0.88rem] sm:text-[0.95rem]">&lt;-</span>
+              <span>Back</span>
             </button>
             <button
               onClick={onStartAdventure}
-              className="flex min-h-[54px] h-full items-center justify-center rounded-2xl bg-slate-100 px-4 py-4 text-base uppercase tracking-[0.08em] text-slate-950 shadow-[0_14px_28px_rgba(255,255,255,0.14)] transition-colors hover:bg-white"
+              className="flex min-h-[52px] h-full items-center justify-center rounded-2xl bg-slate-100 px-3 py-3 font-arena-display text-[1rem] uppercase tracking-[0.08em] text-slate-950 shadow-[0_14px_28px_rgba(255,255,255,0.14)] transition-colors hover:bg-white sm:min-h-[54px] sm:px-4 sm:py-4 sm:text-base"
             >
               {isAdventureComplete ? 'Restart Adventure' : adventureWinsCount > 0 ? 'Continue Adventure' : 'Play'}
             </button>
@@ -1019,7 +1022,7 @@ const AdventureMenuPanel = ({
           {adventureWinsCount > 0 && !isAdventureComplete && (
             <button
               onClick={onRestartAdventure}
-              className="w-full min-h-[52px] rounded-2xl bg-slate-900/72 px-4 py-3.5 text-sm uppercase tracking-[0.08em] text-slate-100 shadow-[0_14px_28px_rgba(15,23,42,0.26)] transition-colors hover:bg-slate-800/78"
+              className="w-full min-h-[50px] rounded-2xl bg-slate-900/72 px-4 py-3 font-arena-display text-[0.9rem] uppercase tracking-[0.08em] text-slate-100 shadow-[0_14px_28px_rgba(15,23,42,0.26)] transition-colors hover:bg-slate-800/78 sm:min-h-[52px] sm:py-3.5 sm:text-sm"
             >
               Restart From Stage 1
             </button>
@@ -1120,8 +1123,8 @@ const LandingScreen = ({
   onRestartAdventure
 }) => {
   const [homeRevealStep, setHomeRevealStep] = useState(menuScreen === 'home' ? 0 : 3);
-  const [landingRipples, setLandingRipples] = useState([]);
-  const landingRippleCleanupRef = useRef([]);
+  const landingRippleSurfaceRef = useRef(null);
+  const landingRippleInstanceRef = useRef(null);
   const hasPlayedInitialRevealRef = useRef(menuScreen !== 'home');
 
   useEffect(() => {
@@ -1174,36 +1177,63 @@ const LandingScreen = ({
   const backgroundVisible = menuScreen !== 'home' || homeRevealStep >= 1;
   const titleVisible = menuScreen !== 'home' || homeRevealStep >= 2;
   const actionsVisible = menuScreen !== 'home' || homeRevealStep >= 3;
+
+  useEffect(() => {
+    const surface = landingRippleSurfaceRef.current;
+    if (typeof window === 'undefined' || !surface || menuScreen !== 'home') return;
+
+    const rippleSurface = $(surface);
+    landingRippleInstanceRef.current = rippleSurface;
+
+    try {
+      rippleSurface.ripples({
+        resolution: 256,
+        perturbance: 0.015,
+        dropRadius: 18,
+        interactive: false,
+        imageUrl: landingBackground
+      });
+      rippleSurface.ripples('updateSize');
+    } catch (_error) {
+      landingRippleInstanceRef.current = null;
+      return;
+    }
+
+    return () => {
+      try {
+        rippleSurface.ripples('destroy');
+      } catch (_error) {}
+      if (landingRippleInstanceRef.current === rippleSurface) {
+        landingRippleInstanceRef.current = null;
+      }
+    };
+  }, [landingBackground, menuScreen]);
+
   const spawnLandingRipple = (event) => {
     if (typeof window === 'undefined') return;
-    const targetBounds = event.currentTarget.getBoundingClientRect();
-    const size = Math.max(280, Math.min(Math.max(targetBounds.width, targetBounds.height) * 0.48, 500));
-    const ripple = {
-      id: Date.now() + Math.random(),
-      x: event.clientX - targetBounds.left,
-      y: event.clientY - targetBounds.top,
-      size
-    };
+    if (typeof event.button === 'number' && event.button !== 0) return;
+    if (menuScreen !== 'home') return;
+
+    const rippleSurface = landingRippleInstanceRef.current;
+    const surface = landingRippleSurfaceRef.current;
+    if (rippleSurface && surface) {
+      const targetBounds = surface.getBoundingClientRect();
+      const x = event.clientX - targetBounds.left;
+      const y = event.clientY - targetBounds.top;
+      const radius = Math.max(18, Math.min(Math.max(targetBounds.width, targetBounds.height) * 0.025, 34));
+      try {
+        rippleSurface.ripples('drop', x, y, radius, 0.07);
+      } catch (_error) {}
+    }
 
     AudioEngine.init();
     AudioEngine.playLandingRipple();
-    setLandingRipples((currentRipples) => [...currentRipples, ripple]);
-    const cleanupTimer = window.setTimeout(() => {
-      setLandingRipples((currentRipples) => currentRipples.filter((entry) => entry.id !== ripple.id));
-      landingRippleCleanupRef.current = landingRippleCleanupRef.current.filter((entry) => entry !== cleanupTimer);
-    }, 1900);
-    landingRippleCleanupRef.current.push(cleanupTimer);
   };
-
-  useEffect(() => () => {
-    landingRippleCleanupRef.current.forEach((timer) => window.clearTimeout(timer));
-    landingRippleCleanupRef.current = [];
-  }, []);
 
   return (
     <div
       className="min-h-dvh bg-slate-950 text-slate-100 relative overflow-x-hidden overflow-y-auto"
-      onPointerDown={spawnLandingRipple}
+      onPointerDownCapture={spawnLandingRipple}
       style={{
         paddingTop: 'max(1rem, env(safe-area-inset-top))',
         paddingBottom: 'max(1rem, env(safe-area-inset-bottom))',
@@ -1211,6 +1241,7 @@ const LandingScreen = ({
       }}
     >
       <div
+        ref={landingRippleSurfaceRef}
         className={`absolute inset-0 bg-center bg-cover bg-no-repeat transition-[opacity,transform,filter] duration-[1400ms] ease-out ${
           backgroundVisible ? 'opacity-100 scale-100' : 'opacity-0 scale-[1.04]'
         }`}
@@ -1231,23 +1262,6 @@ const LandingScreen = ({
             : 'linear-gradient(180deg, rgba(2,6,23,0.48) 0%, rgba(2,6,23,0.72) 100%)'
         }}
       />
-      <div className="pointer-events-none absolute inset-0 overflow-hidden">
-        {landingRipples.map((ripple) => (
-          <div
-            key={ripple.id}
-            className="landing-water-ripple"
-            style={{
-              left: ripple.x,
-              top: ripple.y,
-              width: ripple.size,
-              height: ripple.size
-            }}
-          >
-            <span className="landing-water-ripple-lens" />
-          </div>
-        ))}
-      </div>
-
       <div className="relative z-10 w-full max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
         {menuScreen === 'home' ? (
           <div className="mx-auto flex min-h-[calc(100dvh-5.5rem)] w-full max-w-md flex-col sm:min-h-[calc(100dvh-6.5rem)]">
@@ -1259,7 +1273,7 @@ const LandingScreen = ({
                 <h1
                   className="font-arena-display text-4xl sm:text-5xl font-black text-white whitespace-nowrap"
                   style={{
-                    textShadow: '1px 0 0 rgba(15,23,42,0.9), -1px 0 0 rgba(15,23,42,0.9), 0 1px 0 rgba(15,23,42,0.9), 0 -1px 0 rgba(15,23,42,0.9), 1px 1px 0 rgba(15,23,42,0.82), -1px 1px 0 rgba(15,23,42,0.82), 1px -1px 0 rgba(15,23,42,0.82), -1px -1px 0 rgba(15,23,42,0.82), 0 0 18px rgba(30,41,59,0.42), 0 0 36px rgba(71,85,105,0.24), 0 0 58px rgba(148,163,184,0.2), 0 0 84px rgba(226,232,240,0.12)'
+                    textShadow: '0 0 14px rgba(8,15,33,0.96), 0 0 28px rgba(18,52,128,0.82), 0 0 56px rgba(20,51,135,0.7), 0 0 96px rgba(18,52,128,0.5), 0 0 150px rgba(16,42,110,0.34)'
                   }}
                 >
                   Forgetfull Fish
@@ -1326,7 +1340,7 @@ const LandingScreen = ({
             <div className="flex w-full flex-col items-center gap-2.5">
               <button
                 onClick={onToggleMuted}
-                className="w-full max-w-[15.75rem] min-h-[64px] rounded-full bg-slate-700/58 px-5 py-3 text-white shadow-[0_18px_36px_rgba(15,23,42,0.28)] transition-all hover:bg-slate-700/68"
+                className="w-full max-w-[15.75rem] min-h-[64px] rounded-full bg-slate-800/44 px-5 py-3 text-white shadow-[0_18px_36px_rgba(15,23,42,0.24)] transition-all hover:bg-slate-800/54"
               >
                 <div className="flex flex-col items-center justify-center leading-none">
                   <div className="font-arena-display text-[1.18rem] tracking-[0.04em]">{muted ? 'Sound Off' : 'Sound On'}</div>
@@ -1337,7 +1351,7 @@ const LandingScreen = ({
               </button>
               <button
                 onClick={onToggleOfficialCards}
-                className="w-full max-w-[15.75rem] min-h-[64px] rounded-full bg-slate-700/58 px-5 py-3 text-white shadow-[0_18px_36px_rgba(15,23,42,0.28)] transition-all hover:bg-slate-700/68"
+                className="w-full max-w-[15.75rem] min-h-[64px] rounded-full bg-slate-800/44 px-5 py-3 text-white shadow-[0_18px_36px_rgba(15,23,42,0.24)] transition-all hover:bg-slate-800/54"
               >
                 <div className="flex flex-col items-center justify-center leading-none">
                   <div className="font-arena-display text-[1.18rem] tracking-[0.04em]">Card Art</div>
@@ -1348,7 +1362,7 @@ const LandingScreen = ({
               </button>
               <button
                 onClick={onCloseSettings}
-                className="w-full max-w-[15.75rem] min-h-[56px] rounded-full bg-slate-700/58 px-5 py-3 text-white shadow-[0_18px_36px_rgba(15,23,42,0.28)] transition-all hover:bg-slate-700/68"
+                className="w-full max-w-[15.75rem] min-h-[56px] rounded-full bg-slate-800/44 px-5 py-3 text-white shadow-[0_18px_36px_rgba(15,23,42,0.24)] transition-all hover:bg-slate-800/54"
               >
                 <div className="font-arena-display text-[1.12rem] tracking-[0.04em]">Back</div>
               </button>
@@ -1406,8 +1420,6 @@ export default function App() {
   const adventureProgressRatio = Math.min(adventureWinsCount / ADVENTURE_ROUTE.length, 1);
   const adventureStageNumber = Math.min(adventureWinsCount + 1, ADVENTURE_ROUTE.length);
   const availableAdventureStages = isAdventureComplete ? ADVENTURE_ROUTE.length : Math.min(adventureWinsCount + 1, ADVENTURE_ROUTE.length);
-  const adventureHeaderLabel = isAdventureMatch ? `${Math.min(adventureWinsCount + 1, ADVENTURE_ROUTE.length)}/${ADVENTURE_ROUTE.length}` : null;
-
   useEffect(() => { AudioEngine.muted = muted; }, [muted]);
   useEffect(() => { saveRivalProgress(adventureWinsCount); }, [adventureWinsCount]);
 
@@ -2078,12 +2090,6 @@ export default function App() {
            </button>
         </div>
 
-        {adventureHeaderLabel && (
-          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none rounded-full border border-slate-600 bg-slate-900/95 px-3 py-1 text-[9px] sm:text-[10px] font-black uppercase tracking-[0.16em] text-slate-100 shadow-lg">
-            {adventureHeaderLabel}
-          </div>
-        )}
-        
         <div className="flex gap-2">
            <button onClick={() => setViewingZone('deck')} className="px-3 py-1.5 bg-slate-900 border border-slate-700 hover:bg-slate-800 text-blue-300 rounded flex items-center gap-1.5 text-[10px] font-mono font-bold transition-colors shadow-inner">
              <Layers size={14} className="text-slate-400"/> {state.deck.length}/{SHARED_DECK_SIZE}
