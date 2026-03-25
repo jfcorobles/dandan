@@ -1,6 +1,6 @@
 ﻿import React, { useState, useEffect, useRef, useReducer } from 'react';
 import { Play, SkipForward, Activity, Layers, Skull, Image as ImageIcon, Settings, X, Sun, Moon, Swords, Volume2, VolumeX, ArrowLeftRight, Target, Droplet, Shield, CloudRain, LogOut } from 'lucide-react';
-import { AI_CHARACTERS, AI_DIFFICULTIES, AI_DIFFICULTY_LABELS, AI_SPEED, CARDS, DANDAN_NAME, DEFAULT_AI_CHARACTER_ID, PREDICT_OPTIONS, SHARED_DECK_SIZE, canDandanAttackDefender, checkHasActions, chooseAiAction, controlsIsland, createGameReducer, getAiCharacter, getAiPendingActions, getAiPolicyForActor, getAvailableMana, getManaPool, initialState, isActivatable, isCastable, isCyclable, isValidTarget } from './src/game/engine';
+import { AI_CHARACTERS, AI_DIFFICULTIES, AI_DIFFICULTY_LABELS, AI_SPEED, CARDS, DANDAN_NAME, DEFAULT_AI_CHARACTER_ID, LAND_TYPE_CHOICES, PREDICT_OPTIONS, SHARED_DECK_SIZE, canDandanAttackDefender, checkHasActions, chooseAiAction, controlsIsland, createGameReducer, getAiCharacter, getAiPendingActions, getAiPolicyForActor, getAvailableMana, getManaPool, initialState, isActivatable, isCastable, isCyclable, isValidTarget } from './src/game/engine';
 import archivistPortrait from './img/Archivist.png';
 import cartographerPortrait from './img/Cartographer.png';
 import eelPortrait from './img/Eel.png';
@@ -326,6 +326,8 @@ const Preloader = ({ onComplete }) => {
 const Card = ({ card, onClick, onZoom, zone = 'hand', style = {}, hidden = false, official = false, draggable = false, onDragStart, onDragOver, onDrop, castable = false, targetable = false, activatable = false, subtleHighlight = false, disableHoverLift = false }) => {
   const holdTimer = useRef(null);
   const [isPressing, setIsPressing] = useState(false);
+  const printedLandType = card.type?.includes('Island') ? 'Island' : null;
+  const changedLandType = zone === 'board' && card.isLand && card.landType && card.landType !== printedLandType ? card.landType : null;
 
   const startHold = (e) => {
      if (e.type === 'mousedown' && e.button === 2) {
@@ -442,7 +444,11 @@ const Card = ({ card, onClick, onZoom, zone = 'hand', style = {}, hidden = false
           <div className={`w-4 h-4 rounded-full border-2 rotate-90 ${card.isLand ? 'border-sky-100 opacity-80' : 'border-slate-300 opacity-50'}`} style={{ borderTopColor: 'transparent', borderRightColor: 'transparent' }}/>
         </div>
       )}
-      {card.isSwamp && zone === 'board' && <div className="absolute inset-0 bg-purple-900/60 rounded-md z-20 pointer-events-none mix-blend-multiply flex items-center justify-center"><span className="text-purple-300 font-bold rotate-45 opacity-60 text-xs">SWAMP</span></div>}
+      {changedLandType && (
+        <div className={`absolute inset-0 rounded-md z-20 pointer-events-none mix-blend-multiply flex items-center justify-center ${changedLandType === 'Island' ? 'bg-sky-700/45' : 'bg-purple-900/60'}`}>
+          <span className={`font-bold rotate-45 opacity-65 text-xs ${changedLandType === 'Island' ? 'text-sky-100' : 'text-purple-300'}`}>{changedLandType.toUpperCase()}</span>
+        </div>
+      )}
       {card.summoningSickness && !card.isLand && zone === 'board' && (
          <div className="absolute top-1 right-1 bg-slate-900/85 rounded-full min-w-[18px] h-[18px] px-1 flex items-center justify-center shadow z-40 text-[8px] font-black tracking-tight text-slate-100" title="Summoning Sickness">
             Zz
@@ -1341,6 +1347,24 @@ export default function App() {
             <Target size={16} className="animate-pulse" />
             <span className="text-xs font-bold tracking-widest uppercase">Select Target for {state.pendingTargetSelection.spellName}</span>
             <button onClick={() => dispatch({ type: 'CANCEL_TARGETING' })} className="text-red-300 hover:text-white"><X size={16} /></button>
+         </div>
+      )}
+
+      {state.pendingAction && state.pendingAction.type === 'LAND_TYPE_CHOICE' && (
+         <div className="absolute inset-0 bg-black/80 z-[100] flex flex-col items-center justify-center p-4 backdrop-blur-md">
+            <div className="bg-slate-900 p-6 rounded-xl border border-slate-700 shadow-2xl w-full max-w-sm flex flex-col items-center text-center">
+               <h3 className="font-arena-display text-xl font-bold text-blue-400 mb-2 tracking-[0.12em] uppercase">{state.pendingAction.spellName}</h3>
+               <p className="text-slate-300 text-sm mb-2">Choose whether <strong>{state.pendingAction.targetName}</strong> becomes an <strong>Island</strong> or a <strong>Swamp</strong>.</p>
+               <p className="text-slate-500 text-[11px] mb-6">Choosing Island makes it count as an Island for the game.</p>
+               <div className="grid grid-cols-1 gap-3 w-full">
+                  {LAND_TYPE_CHOICES.map((landType) => (
+                    <button key={landType} onClick={() => dispatch({ type: 'SUBMIT_PENDING_ACTION', landTypeChoice: landType })} className={`w-full py-3 text-white font-bold rounded-xl transition-colors ${landType === 'Island' ? 'bg-sky-600 hover:bg-sky-500' : 'bg-purple-700 hover:bg-purple-600'}`}>
+                      {landType}
+                    </button>
+                  ))}
+                  <button onClick={() => dispatch({ type: 'CANCEL_PENDING_ACTION' })} className="w-full py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-xl transition-colors">Cancel</button>
+               </div>
+            </div>
          </div>
       )}
 

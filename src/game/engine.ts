@@ -443,6 +443,75 @@ const getBlueSources = (card) => {
 
 const getBlueRequirement = (manaCost) => (manaCost.match(/\{U\}/g) || []).length;
 const isCreatureTemplate = (card) => Boolean(card) && (card.type?.includes('Creature') || card.name === DANDAN_NAME);
+const PRINTED_DANDAN_LAND_TYPE = 'Island';
+export const LAND_TYPE_CHOICES = ['Island', 'Swamp'];
+const isLandTypeChoice = (landType) => LAND_TYPE_CHOICES.includes(landType);
+const isLandTypeChoiceSpell = (spellName) => ['Magical Hack', 'Crystal Spray'].includes(spellName);
+const getPrintedLandType = (card) => card.type?.includes('Island') ? 'Island' : null;
+const createTextChangeStateSnapshot = (card) => ({
+  landType: card.landType ?? getPrintedLandType(card),
+  isSwamp: Boolean(card.isSwamp),
+  blueSources: card.blueSources ?? getBlueSources(card),
+  dandanLandType: card.dandanLandType || PRINTED_DANDAN_LAND_TYPE
+});
+const applyTextChangeStateSnapshot = (card, snapshot) => ({
+  ...card,
+  landType: snapshot.landType,
+  isSwamp: snapshot.isSwamp,
+  blueSources: snapshot.blueSources,
+  dandanLandType: snapshot.dandanLandType
+});
+const getLandTextChangeSnapshot = (landType) => ({
+  landType,
+  isSwamp: landType === 'Swamp',
+  blueSources: landType === 'Island' ? 1 : 0
+});
+const getCardTextChangeSnapshotForLandType = (card, landType) => {
+  if (!isLandTypeChoice(landType)) return null;
+  if (card.name === DANDAN_NAME) {
+    return {
+      ...createTextChangeStateSnapshot(card),
+      dandanLandType: landType
+    };
+  }
+  if (card.isLand) {
+    return {
+      ...createTextChangeStateSnapshot(card),
+      ...getLandTextChangeSnapshot(landType)
+    };
+  }
+  return null;
+};
+const clearTemporaryTextChangeState = (card) => ({
+  ...card,
+  temporaryTextChangeBaseState: null
+});
+const getCardWithChosenLandType = (card, landType) => {
+  const snapshot = getCardTextChangeSnapshotForLandType(card, landType);
+  return snapshot ? applyTextChangeStateSnapshot(card, snapshot) : card;
+};
+const applyLandTypeChoiceToCard = (card, landType, duration = 'permanent') => {
+  const snapshot = getCardTextChangeSnapshotForLandType(card, landType);
+  if (!snapshot) return card;
+
+  if (duration === 'endOfTurn') {
+    const baseState = card.temporaryTextChangeBaseState || createTextChangeStateSnapshot(card);
+    return {
+      ...applyTextChangeStateSnapshot(card, snapshot),
+      temporaryTextChangeBaseState: baseState
+    };
+  }
+
+  const transformed = applyTextChangeStateSnapshot(card, snapshot);
+  return card.temporaryTextChangeBaseState
+    ? { ...transformed, temporaryTextChangeBaseState: snapshot }
+    : transformed;
+};
+const expireTemporaryTextChange = (card) => {
+  if (!card.temporaryTextChangeBaseState) return card;
+  return clearTemporaryTextChangeState(applyTextChangeStateSnapshot(card, card.temporaryTextChangeBaseState));
+};
+const expireTemporaryTextChanges = (board) => board.map(expireTemporaryTextChange);
 
 export const initializeDeck = () => {
   let deck = DECKLIST.map(card => ({
@@ -454,13 +523,14 @@ export const initializeDeck = () => {
     blocking: false,
     isSwamp: false,
     owner: null,
-    landType: card.type.includes('Island') ? 'Island' : null,
+    landType: getPrintedLandType(card),
     blueSources: getBlueSources(card),
     blueRequirement: getBlueRequirement(card.manaCost),
-    dandanLandType: 'Island',
+    dandanLandType: PRINTED_DANDAN_LAND_TYPE,
     enchantedId: null,
     controlledByAuraId: null,
-    attachmentOrder: null
+    attachmentOrder: null,
+    temporaryTextChangeBaseState: null
   }));
   for (let i = deck.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
@@ -469,8 +539,8 @@ export const initializeDeck = () => {
   return deck;
 };
 
-const getLandType = (card) => card.landType || null;
-const getDandanLandType = (card) => card.dandanLandType || 'Island';
+const getLandType = (card) => card.landType ?? getPrintedLandType(card);
+const getDandanLandType = (card) => card.dandanLandType || PRINTED_DANDAN_LAND_TYPE;
 const boardHasLandType = (board, landType) => board.some(c => c.isLand && getLandType(c) === landType);
 export const controlsIsland = (board) => boardHasLandType(board, 'Island');
 const isCreatureCard = (card) => isCreatureTemplate(card);
@@ -487,9 +557,10 @@ const clearAttachmentState = (card) => ({
 const resetZoneChangedTextState = (card) => ({
   ...card,
   isSwamp: false,
-  landType: card.type?.includes('Island') ? 'Island' : null,
+  landType: getPrintedLandType(card),
   blueSources: getBlueSources(card),
-  dandanLandType: 'Island'
+  dandanLandType: PRINTED_DANDAN_LAND_TYPE,
+  temporaryTextChangeBaseState: null
 });
 const preparePermanentForZoneChange = (card, overrides = {}) => ({
   ...resetZoneChangedTextState(clearAttachmentState(card)),
@@ -1390,11 +1461,9 @@ const enforceMandatoryDandanAttacks = (state, actor) => {
 };
 const getBlueSourcesInPlay = (board) => board.filter(card => card.isLand && (card.blueSources || 0) > 0).length;
 const getCombatThreat = (defendingBoard, dandanCount) => controlsIsland(defendingBoard) ? dandanCount * 4 : 0;
-const getBoardAfterTransformingPermanent = (board, permanentId) => board.map(card => {
+const getBoardAfterTransformingPermanent = (board, permanentId, landType = 'Swamp') => board.map(card => {
   if (card.id !== permanentId) return card;
-  if (card.name === DANDAN_NAME) return { ...card, dandanLandType: 'Swamp' };
-  if (card.isLand) return { ...card, landType: 'Swamp', isSwamp: true, blueSources: 0 };
-  return card;
+  return getCardWithChosenLandType(card, landType);
 });
 const getBoardAfterRemovingPermanent = (board, permanentId) => board.filter(card => card.id !== permanentId);
 const getCardVersionFromBoard = (board, card) => board.find(entry => entry.id === card.id) || null;
@@ -1432,7 +1501,7 @@ const getThreatenedFriendlyCreaturesFromSpell = (state, actor, stackSpell) => {
 
   const nextBoard = stackSpell.card.name === 'Metamorphose'
     ? getBoardAfterRemovingPermanent(actorBoard, target.id)
-    : getBoardAfterTransformingPermanent(actorBoard, target.id);
+    : getBoardAfterTransformingPermanent(actorBoard, target.id, stackSpell.landTypeChoice || 'Swamp');
   const threatened = actorBoard.filter(card => (
     card.name === DANDAN_NAME &&
     isDandanSupported(card, actorBoard) &&
@@ -1605,23 +1674,35 @@ const getDesiredBlockCount = (state, actor, policy) => {
 const getTransformTargetCandidates = (state, actor) => {
   const opponent = actor === 'player' ? 'ai' : 'player';
   const board = state[opponent].board;
-  const candidates = board.filter(card => card.name === DANDAN_NAME || card.isLand).map(card => {
-    const nextBoard = getBoardAfterTransformingPermanent(board, card.id);
-    const killedDandans = countDandansLosingSupport(board, nextBoard);
-    const attackingKills = board.filter(permanent => (
-      permanent.name === DANDAN_NAME &&
-      permanent.attacking &&
-      isDandanSupported(permanent, board) &&
-      !isDandanSupportedOnBoard(permanent, nextBoard)
-    )).length;
-    const blueLoss = Math.max(0, getBlueSourcesInPlay(board) - getBlueSourcesInPlay(nextBoard));
-    const score = killedDandans * 12 + attackingKills * 4 + blueLoss * 3 + (card.name === DANDAN_NAME ? 1.5 : 0);
-    return { target: card, score };
-  });
+  const candidates = board
+    .filter(card => card.name === DANDAN_NAME || card.isLand)
+    .flatMap(card => LAND_TYPE_CHOICES.map(landTypeChoice => {
+      const nextBoard = getBoardAfterTransformingPermanent(board, card.id, landTypeChoice);
+      const killedDandans = countDandansLosingSupport(board, nextBoard);
+      const attackingKills = board.filter(permanent => (
+        permanent.name === DANDAN_NAME &&
+        permanent.attacking &&
+        isDandanSupported(permanent, board) &&
+        !isDandanSupportedOnBoard(permanent, nextBoard)
+      )).length;
+      const blueLoss = Math.max(0, getBlueSourcesInPlay(board) - getBlueSourcesInPlay(nextBoard));
+      const score = killedDandans * 12 + attackingKills * 4 + blueLoss * 3 + (card.name === DANDAN_NAME ? 1.5 : 0);
+      return { target: card, landTypeChoice, score };
+    }));
 
   return candidates.filter(candidate => candidate.score > 0).sort((left, right) => right.score - left.score);
 };
 const pickTransformTarget = (state, actor) => getTransformTargetCandidates(state, actor)[0] || null;
+const chooseLandTypeForTransformTarget = (state, actor, target) => {
+  if (!target?.id) return 'Swamp';
+
+  const targetController = getBattlefieldController(state, target.id);
+  if (targetController === getOpponent(actor)) {
+    return getTransformTargetCandidates(state, actor).find(candidate => candidate.target.id === target.id)?.landTypeChoice || 'Swamp';
+  }
+  if (targetController === actor) return 'Island';
+  return 'Swamp';
+};
 
 const getBounceTargetCandidates = (state, actor) => {
   const opponent = getOpponent(actor);
@@ -1726,7 +1807,7 @@ const chooseEmergencyDefenseSpell = (state, actor, policy) => {
     if (!target) return;
     spellOptions.push({
       score: target.score + (name === 'Crystal Spray' ? 1.5 : 0),
-      action: { type: 'CAST_SPELL', player: actor, cardId: spell.id, target: target.target }
+      action: { type: 'CAST_SPELL', player: actor, cardId: spell.id, target: target.target, landTypeChoice: target.landTypeChoice }
     });
   });
 
@@ -1996,7 +2077,7 @@ const chooseHeuristicAiAction = (
       if (state.phase === 'upkeep' || !canCast(spell) || !target || policy.control < 0.42) return;
       targetedOptions.push({
         score: target.score + (name === 'Crystal Spray' ? 1.5 : 0) + getSpellContextScore(state, actor, spell, policy, difficulty) - interactionPenalty * 0.4,
-        action: { type: 'CAST_SPELL', player: actor, cardId: spell.id, target: target.target }
+        action: { type: 'CAST_SPELL', player: actor, cardId: spell.id, target: target.target, landTypeChoice: target.landTypeChoice }
       });
     });
 
@@ -2398,7 +2479,7 @@ const getTacticalActionCandidates = (
     if (card.name === 'Magical Hack' || card.name === 'Crystal Spray') {
       getTransformTargetCandidates(state, actor).slice(0, 2).forEach(candidate => {
         addCandidate(
-          { type: 'CAST_SPELL', player: actor, cardId: card.id, target: candidate.target },
+          { type: 'CAST_SPELL', player: actor, cardId: card.id, target: candidate.target, landTypeChoice: candidate.landTypeChoice },
           candidate.score + (card.name === 'Crystal Spray' ? 1.5 : 0) + getSpellContextScore(state, actor, card, policy, difficulty)
         );
       });
@@ -2937,13 +3018,14 @@ export const createGameReducer = (effects = defaultEffects) => {
     case 'CAST_SPELL': {
       const p = action.player;
       const opp = p === 'player' ? 'ai' : 'player';
+      const isHumanControlledPlayer = p === 'player' && s.gameMode !== 'ai_vs_ai';
       const handIdx = s[p].hand.findIndex(c => c.id === action.cardId);
       if (handIdx === -1) return s;
       const card = s[p].hand[handIdx];
       
       const targetDependent = ['Memory Lapse', 'Unsubstantiate', 'Control Magic', 'Magical Hack', 'Crystal Spray', 'Metamorphose'];
       
-      if (!action.target && p === 'player' && targetDependent.includes(card.name)) {
+      if (!action.target && isHumanControlledPlayer && targetDependent.includes(card.name)) {
          s.pendingTargetSelection = { cardId: action.cardId, spellName: card.name };
          return s;
       }
@@ -2961,15 +3043,28 @@ export const createGameReducer = (effects = defaultEffects) => {
         target = s[opp].board.find(c => c.name === 'DandÃ¢n') || s[opp].board.find(c => c.isLand) || s[p].board.find(c => c.isLand);
       }
       if (targetDependent.includes(card.name) && !target) return s;
+      if (isHumanControlledPlayer && isLandTypeChoiceSpell(card.name) && !isLandTypeChoice(action.landTypeChoice)) {
+        s.pendingAction = {
+          type: 'LAND_TYPE_CHOICE',
+          cardId: action.cardId,
+          spellName: card.name,
+          targetId: target.id,
+          targetName: target.card ? target.card.name : target.name
+        };
+        return s;
+      }
 
       if (!canPayCost(s[p].board, getManaPool(s, p), card.cost, card.blueRequirement || 0)) return s;
+      const landTypeChoice = isLandTypeChoiceSpell(card.name)
+        ? (isLandTypeChoice(action.landTypeChoice) ? action.landTypeChoice : chooseLandTypeForTransformTarget(s, p, target))
+        : null;
       effects.playCast();
       const castPayment = spendMana(s[p].board, getManaPool(s, p), card.cost, card.blueRequirement || 0);
       s[p].board = castPayment.board;
       s.floatingMana[p] = castPayment.pool;
       s[p].hand.splice(handIdx, 1);
       removeKnownHandCard(s, p, card.id);
-      s.stack.push({ card, controller: p, target });
+      s.stack.push({ card, controller: p, target, landTypeChoice });
       s.consecutivePasses = 0; s.priority = p === 'player' ? 'ai' : 'player'; 
       logAction(`${p} casts ${card.name}.`);
       return s;
@@ -2985,6 +3080,18 @@ export const createGameReducer = (effects = defaultEffects) => {
       let targetObj = null;
       if (action.targetZone === 'stack') targetObj = s.stack.find(c => c.card.id === action.targetId);
       if (action.targetZone === 'board') targetObj = s.player.board.find(c => c.id === action.targetId) || s.ai.board.find(c => c.id === action.targetId);
+      if (!targetObj) return { ...s, pendingTargetSelection: null };
+      if (isLandTypeChoiceSpell(card.name)) {
+        s.pendingTargetSelection = null;
+        s.pendingAction = {
+          type: 'LAND_TYPE_CHOICE',
+          cardId,
+          spellName: card.name,
+          targetId: targetObj.id,
+          targetName: targetObj.card ? targetObj.card.name : targetObj.name
+        };
+        return s;
+      }
 
       if (!canPayCost(s.player.board, getManaPool(s, 'player'), card.cost, card.blueRequirement || 0)) return { ...s, pendingTargetSelection: null };
       effects.playCast();
@@ -2994,7 +3101,7 @@ export const createGameReducer = (effects = defaultEffects) => {
       s.player.hand.splice(handIdx, 1);
       removeKnownHandCard(s, 'player', card.id);
       
-      s.stack.push({ card, controller: 'player', target: targetObj });
+      s.stack.push({ card, controller: 'player', target: targetObj, landTypeChoice: null });
       s.pendingTargetSelection = null;
       s.consecutivePasses = 0;
       s.priority = 'ai';
@@ -3105,14 +3212,23 @@ export const createGameReducer = (effects = defaultEffects) => {
             
             if (targetPlayer) {
                 const targetObj = s[targetPlayer].board[targetIdx];
+                const landTypeChoice = isLandTypeChoice(spell.landTypeChoice)
+                  ? spell.landTypeChoice
+                  : chooseLandTypeForTransformTarget(s, spell.controller, targetObj);
                 if (targetObj.name === DANDAN_NAME) {
-                    logAction(`${spell.card.name} changes DandÃ¢n's land dependency.`);
-                    s[targetPlayer].board[targetIdx].dandanLandType = 'Swamp';
+                    logAction(`${spell.card.name} changes DandÃ¢n's land dependency to ${landTypeChoice}.`);
+                    s[targetPlayer].board[targetIdx] = applyLandTypeChoiceToCard(
+                      targetObj,
+                      landTypeChoice,
+                      spell.card.name === 'Crystal Spray' ? 'endOfTurn' : 'permanent'
+                    );
                 } else if (targetObj.isLand) {
-                    logAction(`${spell.card.name} changes the land type.`);
-                    s[targetPlayer].board[targetIdx].landType = 'Swamp';
-                    s[targetPlayer].board[targetIdx].isSwamp = true;
-                    s[targetPlayer].board[targetIdx].blueSources = 0;
+                    logAction(`${spell.card.name} changes the land type to ${landTypeChoice}.`);
+                    s[targetPlayer].board[targetIdx] = applyLandTypeChoiceToCard(
+                      targetObj,
+                      landTypeChoice,
+                      spell.card.name === 'Crystal Spray' ? 'endOfTurn' : 'permanent'
+                    );
                 }
             }
         }
@@ -3309,7 +3425,34 @@ export const createGameReducer = (effects = defaultEffects) => {
        return s;
 
     case 'SUBMIT_PENDING_ACTION':
-       if (s.pendingAction.type === 'BRAINSTORM') {
+       if (s.pendingAction.type === 'LAND_TYPE_CHOICE') {
+           const handIdx = s.player.hand.findIndex(c => c.id === s.pendingAction.cardId);
+           const targetObj = s.player.board.find(c => c.id === s.pendingAction.targetId) || s.ai.board.find(c => c.id === s.pendingAction.targetId) || null;
+           const chosenLandType = isLandTypeChoice(action.landTypeChoice) ? action.landTypeChoice : null;
+           if (handIdx === -1 || !targetObj || !chosenLandType) {
+             s.pendingAction = null;
+             return s;
+           }
+
+           const card = s.player.hand[handIdx];
+           if (!canPayCost(s.player.board, getManaPool(s, 'player'), card.cost, card.blueRequirement || 0)) {
+             s.pendingAction = null;
+             return s;
+           }
+
+           effects.playCast();
+           const castPayment = spendMana(s.player.board, getManaPool(s, 'player'), card.cost, card.blueRequirement || 0);
+           s.player.board = castPayment.board;
+           s.floatingMana.player = castPayment.pool;
+           s.player.hand.splice(handIdx, 1);
+           removeKnownHandCard(s, 'player', card.id);
+           s.stack.push({ card, controller: 'player', target: targetObj, landTypeChoice: chosenLandType });
+           s.pendingAction = null;
+           s.consecutivePasses = 0;
+           s.priority = 'ai';
+           logAction(`You cast ${card.name} targeting ${targetObj.name}, choosing ${chosenLandType}.`);
+           return s;
+       } else if (s.pendingAction.type === 'BRAINSTORM') {
            const putBackCards = [];
            s.pendingAction.selected.forEach(cardId => {
                const idx = s.player.hand.findIndex(c => c.id === cardId);
@@ -3495,6 +3638,8 @@ export const createGameReducer = (effects = defaultEffects) => {
 
     case 'NEXT_TURN':
       clearFloatingMana(s);
+      s.player.board = expireTemporaryTextChanges(s.player.board);
+      s.ai.board = expireTemporaryTextChanges(s.ai.board);
       if (s.extraTurns[s.turn] > 0) {
           s.extraTurns[s.turn]--;
           logAction(`-- ${s.turn}'s Extra Turn! --`);

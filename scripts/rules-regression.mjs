@@ -42,6 +42,7 @@ const {
   DANDAN_NAME,
   checkHasActions,
   chooseAiAction,
+  controlsIsland,
   createGameReducer,
   getAiPolicyForActor,
   initialState,
@@ -86,6 +87,7 @@ const makeCard = (template, overrides = {}) => ({
   enchantedId: null,
   controlledByAuraId: null,
   attachmentOrder: null,
+  temporaryTextChangeBaseState: null,
   ...overrides
 });
 
@@ -582,6 +584,39 @@ test('medium AI targets the Dandan with Crystal Spray when changing one land wou
   expect(action.type === 'CAST_SPELL', `Medium AI should cast Crystal Spray here, got ${action.type}`);
   expect(action.cardId === crystalSpray.id, 'Medium AI did not choose Crystal Spray for the kill line');
   expect(action.target?.id === playerDandan.id, 'Medium AI should target the Dandan itself when one land change would leave it alive');
+  expect(action.landTypeChoice === 'Swamp', `Medium AI should choose Swamp for the kill line, got ${action.landTypeChoice}`);
+});
+
+test('player choosing Island makes a hacked land count as an Island', () => {
+  const magicalHack = makeCard(CARDS.MAGICAL_HACK, { id: 'hack-friendly-island', owner: 'player' });
+  const fengraf = makeCard(CARDS.FENGRAF, { id: 'hack-target-fengraf' });
+  const island = makeCard(CARDS.ISLAND_1, { id: 'hack-support-island' });
+
+  let state = makeState({
+    player: {
+      life: 20,
+      hand: [magicalHack],
+      board: [island, fengraf],
+      landsPlayed: 0
+    },
+    ai: {
+      life: 20,
+      hand: [],
+      board: [],
+      landsPlayed: 0
+    }
+  });
+
+  state = reducer(state, { type: 'CAST_SPELL', player: 'player', cardId: magicalHack.id, target: fengraf, landTypeChoice: 'Island' });
+  state = reducer(state, { type: 'PASS_PRIORITY', player: 'ai' });
+  state = reducer(state, { type: 'PASS_PRIORITY', player: 'player' });
+  expect(state.stackResolving === true, 'Magical Hack with Island choice did not reach stack resolution');
+  state = reducer(state, { type: 'RESOLVE_TOP_STACK' });
+
+  const hackedLand = state.player.board.find((card) => card.id === fengraf.id);
+  expect(hackedLand?.landType === 'Island', 'Chosen Island land type was not applied');
+  expect(hackedLand?.blueSources === 1, 'Chosen Island land type did not grant blue mana');
+  expect(controlsIsland(state.player.board), 'Chosen Island land type should count as an Island in game logic');
 });
 
 test('medium AI bounces Control Magic to reclaim its stolen Dandan', () => {
@@ -1129,7 +1164,7 @@ test('zone changes reset a transformed Island back to being an Island', () => {
     }
   });
 
-  state = reducer(state, { type: 'CAST_SPELL', player: 'ai', cardId: spray.id, target: playerIsland });
+  state = reducer(state, { type: 'CAST_SPELL', player: 'ai', cardId: spray.id, target: playerIsland, landTypeChoice: 'Swamp' });
   state = reducer(state, { type: 'PASS_PRIORITY', player: 'player' });
   state = reducer(state, { type: 'PASS_PRIORITY', player: 'ai' });
   state = reducer(state, { type: 'RESOLVE_TOP_STACK' });
@@ -1150,6 +1185,51 @@ test('zone changes reset a transformed Island back to being an Island', () => {
   expect(topCard.landType === 'Island', 'Island kept a stale transformed land type after leaving the battlefield');
   expect(topCard.blueSources === 1, 'Island did not regain blue mana production after leaving the battlefield');
   expect(topCard.isSwamp === false, 'Island kept stale Swamp state after leaving the battlefield');
+});
+
+test('Crystal Spray reverts at end of turn after the cleanup window', () => {
+  const playerIsland = makeCard(CARDS.ISLAND_1, { id: 'spray-eot-player-island' });
+  const spray = makeCard(CARDS.CRYSTAL_SPRAY, { id: 'spray-eot-card', owner: 'ai' });
+  const aiIslands = [
+    makeCard(CARDS.ISLAND_2, { id: 'spray-eot-ai-island-1' }),
+    makeCard(CARDS.ISLAND_3, { id: 'spray-eot-ai-island-2' }),
+    makeCard(CARDS.ISLAND_4, { id: 'spray-eot-ai-island-3' })
+  ];
+
+  let state = makeState({
+    turn: 'ai',
+    phase: 'main2',
+    priority: 'ai',
+    ai: {
+      life: 20,
+      hand: [spray],
+      board: aiIslands,
+      landsPlayed: 0
+    },
+    player: {
+      life: 20,
+      hand: [],
+      board: [playerIsland],
+      landsPlayed: 0
+    }
+  });
+
+  state = reducer(state, { type: 'CAST_SPELL', player: 'ai', cardId: spray.id, target: playerIsland, landTypeChoice: 'Swamp' });
+  state = reducer(state, { type: 'PASS_PRIORITY', player: 'player' });
+  state = reducer(state, { type: 'PASS_PRIORITY', player: 'ai' });
+  state = reducer(state, { type: 'RESOLVE_TOP_STACK' });
+
+  let sprayedLand = state.player.board.find((card) => card.id === playerIsland.id);
+  expect(sprayedLand?.landType === 'Swamp', 'Crystal Spray should change the land before end of turn');
+
+  state.phase = 'cleanup';
+  state.priority = 'ai';
+  state = reducer(state, { type: 'NEXT_PHASE' });
+
+  sprayedLand = state.player.board.find((card) => card.id === playerIsland.id);
+  expect(sprayedLand?.landType === 'Island', 'Crystal Spray should wear off at end of turn');
+  expect(sprayedLand?.blueSources === 1, 'Crystal Spray should restore Island blue mana after expiring');
+  expect(sprayedLand?.isSwamp === false, 'Crystal Spray should clear the temporary Swamp marker after expiring');
 });
 
 test('older Control Magic resumes control when the newer aura leaves', () => {
