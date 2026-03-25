@@ -2356,11 +2356,17 @@ export default function App() {
     state.phase === 'declare_attackers' &&
     state.priority === 'player' &&
     state.player.board.some(card => card.name === DANDAN_NAME && !card.summoningSickness && !card.tapped);
+  const localPendingAction = state.pendingAction && (state.pendingAction.player || 'player') === 'player'
+    ? state.pendingAction
+    : null;
+  const localPendingTargetSelection = state.pendingTargetSelection && (state.pendingTargetSelection.player || 'player') === 'player'
+    ? state.pendingTargetSelection
+    : null;
   const peekablePendingActionTypes = ['DISCARD_CLEANUP', 'ACTIVATE_LAND', 'HAND_LAND_ACTION', 'MYSTIC_SANCTUARY', 'LAND_TYPE_CHOICE', 'BRAINSTORM', 'DISCARD', 'PREDICT', 'TELLING_TIME', 'HALIMAR_DEPTHS'];
   const isPeekableDialogVisible = Boolean(
     dandanCastConfirm ||
     dandanAttackBlockedDialog ||
-    (state.pendingAction && peekablePendingActionTypes.includes(state.pendingAction.type))
+    (localPendingAction && peekablePendingActionTypes.includes(localPendingAction.type))
   );
   const currentOpponentCharacter = isPeerMatch
     ? null
@@ -3130,7 +3136,7 @@ export default function App() {
 
     if (zone === 'stack') {
       const clickedEntry = state.stack.find(entry => entry.card?.id === card.id) || null;
-      if (state.priority === 'player' && state.pendingTargetSelection && isValidTarget(card, zone, state)) {
+      if (state.priority === 'player' && localPendingTargetSelection && isValidTarget(card, zone, state)) {
         setSelectedStackEntryId(null);
         dispatch({ type: 'CAST_WITH_TARGET', targetId: card.id, targetZone: zone });
         return;
@@ -3143,7 +3149,7 @@ export default function App() {
     setSelectedStackEntryId(null);
     if (state.priority !== 'player') return;
 
-    if (state.pendingTargetSelection && isValidTarget(card, zone, state)) {
+    if (localPendingTargetSelection && isValidTarget(card, zone, state)) {
        dispatch({ type: 'CAST_WITH_TARGET', targetId: card.id, targetZone: zone }); return;
     }
     
@@ -3785,7 +3791,7 @@ export default function App() {
       </div>
       
       {/* STARTING MULLIGAN MODAL */}
-      {state.phase === 'mulligan' && !state.pendingAction && (
+      {state.phase === 'mulligan' && !localPendingAction && (
          <div className="absolute inset-0 bg-black/90 z-[110] flex flex-col items-center justify-center p-4 backdrop-blur-md animate-in fade-in duration-300">
              <h2 className="font-arena-display text-4xl font-black tracking-[0.12em] uppercase text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-300 mb-2 text-center w-full">Starting Hand</h2>
              <p className="text-slate-400 mb-8 font-mono">Mulligans taken: {currentMulliganCount}</p>
@@ -3855,7 +3861,7 @@ export default function App() {
       )}
 
       {/* MULTI-CARD SELECT PENDING MODAL */}
-      {state.pendingAction && ['MULLIGAN_BOTTOM', 'DISCARD_CLEANUP'].includes(state.pendingAction.type) && (
+      {localPendingAction && ['MULLIGAN_BOTTOM', 'DISCARD_CLEANUP'].includes(localPendingAction.type) && (
          <PeekableDialogOverlay
            peekActive={isBattlefieldPeekActive}
            onPeekStart={handleBattlefieldPeekStart}
@@ -3864,22 +3870,22 @@ export default function App() {
            backdropClassName="bg-black/90"
          >
             <div className="bg-slate-900 p-8 rounded-2xl border border-slate-700 shadow-2xl w-full max-w-2xl flex flex-col items-center text-center">
-               <h3 className="font-arena-display text-2xl font-black text-blue-400 mb-2 tracking-[0.16em] uppercase">{state.pendingAction.type === 'MULLIGAN_BOTTOM' ? 'Mulligan' : 'Cleanup Step'}</h3>
-               <p className="text-slate-300 text-sm mb-8">Select <span className="text-white font-bold text-lg">{state.pendingAction.count}</span> card(s) to discard or put on bottom.</p>
+               <h3 className="font-arena-display text-2xl font-black text-blue-400 mb-2 tracking-[0.16em] uppercase">{localPendingAction.type === 'MULLIGAN_BOTTOM' ? 'Mulligan' : 'Cleanup Step'}</h3>
+               <p className="text-slate-300 text-sm mb-8">Select <span className="text-white font-bold text-lg">{localPendingAction.count}</span> card(s) to discard or put on bottom.</p>
                <div className="flex flex-wrap gap-3 justify-center mb-8">
                   {state.player.hand.map(c => (
-                     <div key={c.id} onClick={() => dispatch({ type: 'TOGGLE_PENDING_SELECT', cardId: c.id })} className={`cursor-pointer transition-all duration-200 ${state.pendingAction.selected.includes(c.id) ? 'ring-4 ring-blue-500 rounded-md shadow-[0_10px_20px_rgba(37,99,235,0.5)]' : 'opacity-80 hover:opacity-100'}`}>
+                     <div key={c.id} onClick={() => dispatch({ type: 'TOGGLE_PENDING_SELECT', cardId: c.id })} className={`cursor-pointer transition-all duration-200 ${localPendingAction.selected.includes(c.id) ? 'ring-4 ring-blue-500 rounded-md shadow-[0_10px_20px_rgba(37,99,235,0.5)]' : 'opacity-80 hover:opacity-100'}`}>
                         <Card card={c} official={useOfficialCards} onZoom={setZoomedCard} disableHoverLift />
                      </div>
                   ))}
                </div>
-               <button disabled={state.pendingAction.selected.length !== state.pendingAction.count} onClick={() => dispatch({ type: 'SUBMIT_PENDING_ACTION' })} className="px-10 py-4 bg-blue-600 disabled:bg-slate-800 disabled:text-slate-500 text-white font-black tracking-widest uppercase rounded-xl shadow-lg transition-all disabled:shadow-none hover:bg-blue-500">Confirm</button>
+               <button disabled={localPendingAction.selected.length !== localPendingAction.count} onClick={() => dispatch({ type: 'SUBMIT_PENDING_ACTION' })} className="px-10 py-4 bg-blue-600 disabled:bg-slate-800 disabled:text-slate-500 text-white font-black tracking-widest uppercase rounded-xl shadow-lg transition-all disabled:shadow-none hover:bg-blue-500">Confirm</button>
             </div>
          </PeekableDialogOverlay>
       )}
 
       {/* LAND ACTIVATION PROMPT */}
-      {state.pendingAction && state.pendingAction.type === 'ACTIVATE_LAND' && (
+      {localPendingAction && localPendingAction.type === 'ACTIVATE_LAND' && (
          <PeekableDialogOverlay
            peekActive={isBattlefieldPeekActive}
            onPeekStart={handleBattlefieldPeekStart}
@@ -3889,9 +3895,9 @@ export default function App() {
             <div className="bg-slate-900 p-6 rounded-xl border border-slate-700 shadow-2xl w-full max-w-sm flex flex-col items-center text-center">
                <h3 className="font-arena-display text-xl font-bold text-blue-400 mb-2 tracking-[0.12em] uppercase">Activate Ability</h3>
                <p className="text-slate-300 text-sm mb-6">
-                 {state.pendingAction.cardName === 'Svyelunite Temple'
-                   ? <>Are you sure you want to sacrifice <strong>{state.pendingAction.cardName}</strong> to add <strong>2 blue mana</strong>?</>
-                   : <>Do you want to sacrifice <strong>{state.pendingAction.cardName}</strong> and pay {state.pendingAction.activation?.total ?? 0} mana to activate its ability?</>}
+                 {localPendingAction.cardName === 'Svyelunite Temple'
+                   ? <>Are you sure you want to sacrifice <strong>{localPendingAction.cardName}</strong> to add <strong>2 blue mana</strong>?</>
+                   : <>Do you want to sacrifice <strong>{localPendingAction.cardName}</strong> and pay {localPendingAction.activation?.total ?? 0} mana to activate its ability?</>}
                </p>
                <div className="flex gap-4 w-full">
                   <button onClick={() => dispatch({ type: 'CANCEL_PENDING_ACTION' })} className="flex-1 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-xl transition-colors">Cancel</button>
@@ -3901,7 +3907,7 @@ export default function App() {
          </PeekableDialogOverlay>
       )}
 
-      {state.pendingAction && state.pendingAction.type === 'HAND_LAND_ACTION' && (
+      {localPendingAction && localPendingAction.type === 'HAND_LAND_ACTION' && (
          <PeekableDialogOverlay
            peekActive={isBattlefieldPeekActive}
            onPeekStart={handleBattlefieldPeekStart}
@@ -3909,18 +3915,18 @@ export default function App() {
            overlayClassName="z-[100] flex flex-col items-center justify-center p-4 pb-24"
          >
             <div className="bg-slate-900 p-6 rounded-xl border border-slate-700 shadow-2xl w-full max-w-sm flex flex-col items-center text-center">
-               <h3 className="font-arena-display text-xl font-bold text-blue-400 mb-2 tracking-[0.12em] uppercase">{state.pendingAction.cardName}</h3>
+               <h3 className="font-arena-display text-xl font-bold text-blue-400 mb-2 tracking-[0.12em] uppercase">{localPendingAction.cardName}</h3>
                <p className="text-slate-300 text-sm mb-6">
-                 {state.pendingAction.canPlay && state.pendingAction.canCycle
+                 {localPendingAction.canPlay && localPendingAction.canCycle
                    ? 'Choose whether to play this land or cycle it.'
-                   : `Cycle this land for ${state.pendingAction.cyclingCost}?`}
+                   : `Cycle this land for ${localPendingAction.cyclingCost}?`}
                </p>
                <div className="grid grid-cols-1 gap-3 w-full">
-                  {state.pendingAction.canPlay && (
-                    <button onClick={() => dispatch({ type: 'PLAY_LAND', player: 'player', cardId: state.pendingAction.cardId })} className="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl transition-colors">Play Land</button>
+                  {localPendingAction.canPlay && (
+                    <button onClick={() => dispatch({ type: 'PLAY_LAND', player: 'player', cardId: localPendingAction.cardId })} className="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl transition-colors">Play Land</button>
                   )}
-                  {state.pendingAction.canCycle && (
-                    <button onClick={() => dispatch({ type: 'CYCLE_CARD', player: 'player', cardId: state.pendingAction.cardId })} className="w-full py-3 bg-cyan-600 hover:bg-cyan-500 text-white font-bold rounded-xl transition-colors">Cycle {state.pendingAction.cyclingCost}</button>
+                  {localPendingAction.canCycle && (
+                    <button onClick={() => dispatch({ type: 'CYCLE_CARD', player: 'player', cardId: localPendingAction.cardId })} className="w-full py-3 bg-cyan-600 hover:bg-cyan-500 text-white font-bold rounded-xl transition-colors">Cycle {localPendingAction.cyclingCost}</button>
                   )}
                   <button onClick={() => dispatch({ type: 'CANCEL_PENDING_ACTION' })} className="w-full py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-xl transition-colors">Cancel</button>
                </div>
@@ -3929,7 +3935,7 @@ export default function App() {
       )}
 
       {/* MYSTIC SANCTUARY SELECTION MODAL */}
-      {state.pendingAction && state.pendingAction.type === 'MYSTIC_SANCTUARY' && (
+      {localPendingAction && localPendingAction.type === 'MYSTIC_SANCTUARY' && (
          <PeekableDialogOverlay
            peekActive={isBattlefieldPeekActive}
            onPeekStart={handleBattlefieldPeekStart}
@@ -3940,7 +3946,7 @@ export default function App() {
                <h3 className="font-arena-display text-xl font-bold text-blue-400 mb-2 tracking-[0.12em] uppercase">Mystic Sanctuary</h3>
                <p className="text-slate-300 text-sm mb-6">Select an Instant or Sorcery from your graveyard to put on top of your library. Or skip.</p>
                <div className="flex flex-wrap gap-2 justify-center mb-6 overflow-y-auto custom-scrollbar p-2 w-full">
-                  {state.graveyard.filter(c => state.pendingAction.validTargets.includes(c.id)).map(c => (
+                  {state.graveyard.filter(c => localPendingAction.validTargets.includes(c.id)).map(c => (
                      <div key={c.id} onClick={() => dispatch({ type: 'SUBMIT_PENDING_ACTION', selectedCardId: c.id })} className="cursor-pointer transition-all hover:opacity-100 opacity-90">
                         <Card card={c} official={useOfficialCards} onZoom={setZoomedCard} disableHoverLift />
                      </div>
@@ -3961,17 +3967,17 @@ export default function App() {
       />
 
       {/* TARGETING BANNER */}
-      {state.pendingTargetSelection && (
+      {localPendingTargetSelection && (
          <div className="absolute inset-0 z-50 flex items-center justify-center pointer-events-none">
             <div className="pointer-events-auto bg-red-900/92 border border-red-500 text-white px-6 py-3 rounded-full shadow-[0_0_24px_rgba(239,68,68,0.45)] flex items-center gap-4 animate-in zoom-in-95 duration-200">
                <Target size={16} className="animate-pulse" />
-               <span className="text-xs font-bold tracking-widest uppercase">Select Target for {state.pendingTargetSelection.spellName}</span>
+               <span className="text-xs font-bold tracking-widest uppercase">Select Target for {localPendingTargetSelection.spellName}</span>
                <button onClick={() => dispatch({ type: 'CANCEL_TARGETING' })} className="text-red-300 hover:text-white"><X size={16} /></button>
             </div>
          </div>
       )}
 
-      {state.pendingAction && state.pendingAction.type === 'LAND_TYPE_CHOICE' && (
+      {localPendingAction && localPendingAction.type === 'LAND_TYPE_CHOICE' && (
          <PeekableDialogOverlay
            peekActive={isBattlefieldPeekActive}
            onPeekStart={handleBattlefieldPeekStart}
@@ -3979,8 +3985,8 @@ export default function App() {
            overlayClassName="z-[100] flex flex-col items-center justify-center p-4 pb-24"
          >
             <div className="bg-slate-900 p-6 rounded-xl border border-slate-700 shadow-2xl w-full max-w-sm flex flex-col items-center text-center">
-               <h3 className="font-arena-display text-xl font-bold text-blue-400 mb-2 tracking-[0.12em] uppercase">{state.pendingAction.spellName}</h3>
-               <p className="text-slate-300 text-sm mb-2">Choose which <strong>basic land type</strong> <strong>{state.pendingAction.targetName}</strong> becomes.</p>
+               <h3 className="font-arena-display text-xl font-bold text-blue-400 mb-2 tracking-[0.12em] uppercase">{localPendingAction.spellName}</h3>
+               <p className="text-slate-300 text-sm mb-2">Choose which <strong>basic land type</strong> <strong>{localPendingAction.targetName}</strong> becomes.</p>
                <p className="text-slate-500 text-[11px] mb-6">For Dandan, choose a land type its controller does not control if you want it to lose support.</p>
                <div className="grid grid-cols-2 gap-3 w-full">
                   {LAND_TYPE_CHOICES.map((landType) => (
@@ -3995,7 +4001,7 @@ export default function App() {
       )}
 
       {/* PENDING RESOLUTION ACTIONS */}
-      {state.pendingAction && state.pendingAction.type === 'BRAINSTORM' && (
+      {localPendingAction && localPendingAction.type === 'BRAINSTORM' && (
          <PeekableDialogOverlay
            peekActive={isBattlefieldPeekActive}
            onPeekStart={handleBattlefieldPeekStart}
@@ -4007,17 +4013,17 @@ export default function App() {
                <p className="text-slate-300 text-sm mb-6">Select 2 cards to put back on top of your library.</p>
                <div className="flex flex-wrap gap-2 justify-center mb-6">
                   {state.player.hand.map(c => (
-                     <div key={c.id} onClick={() => dispatch({ type: 'TOGGLE_PENDING_SELECT', cardId: c.id })} className={`cursor-pointer transition-transform ${state.pendingAction.selected.includes(c.id) ? 'ring-4 ring-blue-500 rounded-md shadow-[0_10px_20px_rgba(37,99,235,0.45)]' : 'opacity-80'}`}>
+                     <div key={c.id} onClick={() => dispatch({ type: 'TOGGLE_PENDING_SELECT', cardId: c.id })} className={`cursor-pointer transition-transform ${localPendingAction.selected.includes(c.id) ? 'ring-4 ring-blue-500 rounded-md shadow-[0_10px_20px_rgba(37,99,235,0.45)]' : 'opacity-80'}`}>
                         <Card card={c} official={useOfficialCards} onZoom={setZoomedCard} disableHoverLift />
                      </div>
                   ))}
                </div>
-               <button disabled={state.pendingAction.selected.length !== 2} onClick={() => dispatch({ type: 'SUBMIT_PENDING_ACTION' })} className="px-8 py-3 bg-blue-600 disabled:bg-slate-700 text-white font-bold rounded-xl w-full">Confirm</button>
+               <button disabled={localPendingAction.selected.length !== 2} onClick={() => dispatch({ type: 'SUBMIT_PENDING_ACTION' })} className="px-8 py-3 bg-blue-600 disabled:bg-slate-700 text-white font-bold rounded-xl w-full">Confirm</button>
             </div>
          </PeekableDialogOverlay>
       )}
 
-      {state.pendingAction && state.pendingAction.type === 'DISCARD' && (
+      {localPendingAction && localPendingAction.type === 'DISCARD' && (
          <PeekableDialogOverlay
            peekActive={isBattlefieldPeekActive}
            onPeekStart={handleBattlefieldPeekStart}
@@ -4029,17 +4035,17 @@ export default function App() {
                <p className="text-slate-300 text-sm mb-6">You haven't attacked. Select 1 card to discard.</p>
                <div className="flex flex-wrap gap-2 justify-center mb-6">
                   {state.player.hand.map(c => (
-                     <div key={c.id} onClick={() => dispatch({ type: 'TOGGLE_PENDING_SELECT', cardId: c.id })} className={`cursor-pointer transition-transform ${state.pendingAction.selected.includes(c.id) ? 'ring-4 ring-red-500 rounded-md shadow-[0_10px_20px_rgba(239,68,68,0.4)]' : 'opacity-80'}`}>
+                     <div key={c.id} onClick={() => dispatch({ type: 'TOGGLE_PENDING_SELECT', cardId: c.id })} className={`cursor-pointer transition-transform ${localPendingAction.selected.includes(c.id) ? 'ring-4 ring-red-500 rounded-md shadow-[0_10px_20px_rgba(239,68,68,0.4)]' : 'opacity-80'}`}>
                         <Card card={c} official={useOfficialCards} onZoom={setZoomedCard} disableHoverLift />
                      </div>
                   ))}
                </div>
-               <button disabled={state.pendingAction.selected.length !== 1} onClick={() => dispatch({ type: 'SUBMIT_PENDING_ACTION' })} className="px-8 py-3 bg-red-600 disabled:bg-slate-700 text-white font-bold rounded-xl w-full">Discard</button>
+               <button disabled={localPendingAction.selected.length !== 1} onClick={() => dispatch({ type: 'SUBMIT_PENDING_ACTION' })} className="px-8 py-3 bg-red-600 disabled:bg-slate-700 text-white font-bold rounded-xl w-full">Discard</button>
             </div>
          </PeekableDialogOverlay>
       )}
 
-      {state.pendingAction && state.pendingAction.type === 'PREDICT' && (
+      {localPendingAction && localPendingAction.type === 'PREDICT' && (
          <PeekableDialogOverlay
            peekActive={isBattlefieldPeekActive}
            onPeekStart={handleBattlefieldPeekStart}
@@ -4060,7 +4066,7 @@ export default function App() {
          </PeekableDialogOverlay>
       )}
 
-      {state.pendingAction && state.pendingAction.type === 'TELLING_TIME' && (
+      {localPendingAction && localPendingAction.type === 'TELLING_TIME' && (
          <PeekableDialogOverlay
            peekActive={isBattlefieldPeekActive}
            onPeekStart={handleBattlefieldPeekStart}
@@ -4071,20 +4077,20 @@ export default function App() {
                <h3 className="font-arena-display text-xl font-bold text-blue-400 mb-2 tracking-[0.12em] uppercase">Telling Time</h3>
                <p className="text-slate-300 text-sm mb-6">Assign 1 to Hand and 1 to Top. The remainder goes to the Bottom.</p>
                <div className="flex gap-4 justify-center mb-6">
-                  {state.pendingAction.cards.map(c => (
+                  {localPendingAction.cards.map(c => (
                      <div key={c.id} className="flex flex-col items-center gap-2">
                        <Card card={c} official={useOfficialCards} onZoom={setZoomedCard} disableHoverLift />
-                        <button onClick={() => dispatch({ type: 'UPDATE_TELLING_TIME', cardId: c.id, dest: 'hand' })} className={`w-full text-[10px] font-bold py-1 rounded transition-colors ${state.pendingAction.hand === c.id ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-400'}`}>HAND</button>
-                        <button onClick={() => dispatch({ type: 'UPDATE_TELLING_TIME', cardId: c.id, dest: 'top' })} className={`w-full text-[10px] font-bold py-1 rounded transition-colors ${state.pendingAction.top === c.id ? 'bg-green-600 text-white' : 'bg-slate-800 text-slate-400'}`}>TOP</button>
+                        <button onClick={() => dispatch({ type: 'UPDATE_TELLING_TIME', cardId: c.id, dest: 'hand' })} className={`w-full text-[10px] font-bold py-1 rounded transition-colors ${localPendingAction.hand === c.id ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-400'}`}>HAND</button>
+                        <button onClick={() => dispatch({ type: 'UPDATE_TELLING_TIME', cardId: c.id, dest: 'top' })} className={`w-full text-[10px] font-bold py-1 rounded transition-colors ${localPendingAction.top === c.id ? 'bg-green-600 text-white' : 'bg-slate-800 text-slate-400'}`}>TOP</button>
                      </div>
                   ))}
                </div>
-               <button disabled={!state.pendingAction.hand || !state.pendingAction.top || state.pendingAction.hand === state.pendingAction.top} onClick={() => dispatch({ type: 'SUBMIT_PENDING_ACTION' })} className="px-8 py-3 bg-blue-600 disabled:bg-slate-700 text-white font-bold rounded-xl w-full">Confirm</button>
+               <button disabled={!localPendingAction.hand || !localPendingAction.top || localPendingAction.hand === localPendingAction.top} onClick={() => dispatch({ type: 'SUBMIT_PENDING_ACTION' })} className="px-8 py-3 bg-blue-600 disabled:bg-slate-700 text-white font-bold rounded-xl w-full">Confirm</button>
             </div>
          </PeekableDialogOverlay>
       )}
 
-      {state.pendingAction && state.pendingAction.type === 'HALIMAR_DEPTHS' && (
+      {localPendingAction && localPendingAction.type === 'HALIMAR_DEPTHS' && (
          <PeekableDialogOverlay
            peekActive={isBattlefieldPeekActive}
            onPeekStart={handleBattlefieldPeekStart}
@@ -4096,7 +4102,7 @@ export default function App() {
                <p className="text-slate-300 text-sm mb-5">Reorder the top 3 cards of your library.</p>
                <div className="w-full overflow-x-auto overflow-y-visible custom-scrollbar pb-3">
                   <div className="flex gap-4 justify-center items-start min-w-max mx-auto px-1">
-                     {state.pendingAction.cards.map((c, i) => (
+                     {localPendingAction.cards.map((c, i) => (
                         <div 
                            key={c.id} 
                            className="flex flex-col items-center gap-2 pb-1"
@@ -4110,11 +4116,11 @@ export default function App() {
                         >
                            <div className="flex gap-2">
                               <button disabled={i === 0} onClick={() => dispatch({ type: 'REORDER_HALIMAR', from: i, to: i - 1 })} className="px-2 py-1 rounded bg-slate-800 text-slate-300 disabled:opacity-30">←</button>
-                              <button disabled={i === state.pendingAction.cards.length - 1} onClick={() => dispatch({ type: 'REORDER_HALIMAR', from: i, to: i + 1 })} className="px-2 py-1 rounded bg-slate-800 text-slate-300 disabled:opacity-30">→</button>
+                              <button disabled={i === localPendingAction.cards.length - 1} onClick={() => dispatch({ type: 'REORDER_HALIMAR', from: i, to: i + 1 })} className="px-2 py-1 rounded bg-slate-800 text-slate-300 disabled:opacity-30">→</button>
                            </div>
                            <Card card={c} official={useOfficialCards} onZoom={null} disableHoverLift />
                            <div className="h-4 w-full text-center text-[10px] font-bold text-slate-400">
-                              {i === 0 ? 'TOP' : i === state.pendingAction.cards.length - 1 ? 'BOTTOM' : ''}
+                              {i === 0 ? 'TOP' : i === localPendingAction.cards.length - 1 ? 'BOTTOM' : ''}
                            </div>
                         </div>
                      ))}
