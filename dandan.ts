@@ -1343,10 +1343,12 @@ export default function App() {
 
       {/* TARGETING BANNER */}
       {state.pendingTargetSelection && (
-         <div className="absolute top-12 left-1/2 -translate-x-1/2 bg-red-900/90 border border-red-500 text-white px-6 py-2 rounded-full shadow-[0_0_20px_rgba(239,68,68,0.5)] z-50 flex items-center gap-4 animate-in slide-in-from-top-4">
-            <Target size={16} className="animate-pulse" />
-            <span className="text-xs font-bold tracking-widest uppercase">Select Target for {state.pendingTargetSelection.spellName}</span>
-            <button onClick={() => dispatch({ type: 'CANCEL_TARGETING' })} className="text-red-300 hover:text-white"><X size={16} /></button>
+         <div className="absolute inset-0 z-50 flex items-center justify-center pointer-events-none">
+            <div className="pointer-events-auto bg-red-900/92 border border-red-500 text-white px-6 py-3 rounded-full shadow-[0_0_24px_rgba(239,68,68,0.45)] flex items-center gap-4 animate-in zoom-in-95 duration-200">
+               <Target size={16} className="animate-pulse" />
+               <span className="text-xs font-bold tracking-widest uppercase">Select Target for {state.pendingTargetSelection.spellName}</span>
+               <button onClick={() => dispatch({ type: 'CANCEL_TARGETING' })} className="text-red-300 hover:text-white"><X size={16} /></button>
+            </div>
          </div>
       )}
 
