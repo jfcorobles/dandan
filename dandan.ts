@@ -359,93 +359,6 @@ const PolicyOverlay = ({ policyKey, onClose }) => {
 };
 
 const WhatIsThisOverlay = ({ onClose }) => {
-  const [voiceState, setVoiceState] = useState('idle');
-  const [voiceName, setVoiceName] = useState('System voice');
-  const utteranceRef = useRef(null);
-
-  const stopNarration = () => {
-    if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
-      setVoiceState('idle');
-      return;
-    }
-    window.speechSynthesis.cancel();
-    utteranceRef.current = null;
-    setVoiceState('idle');
-  };
-
-  const playNarration = () => {
-    if (
-      typeof window === 'undefined' ||
-      !('speechSynthesis' in window) ||
-      typeof SpeechSynthesisUtterance === 'undefined'
-    ) {
-      setVoiceState('unavailable');
-      return;
-    }
-
-    const synthesis = window.speechSynthesis;
-    const utterance = new SpeechSynthesisUtterance(WHAT_IS_THIS_CONTENT.narration);
-    const voice = pickNarrationVoice(synthesis.getVoices());
-
-    if (voice) {
-      utterance.voice = voice;
-      setVoiceName(voice.name || 'System voice');
-    } else {
-      setVoiceName('System voice');
-    }
-
-    utterance.rate = 0.95;
-    utterance.pitch = 0.96;
-    utterance.volume = 1;
-    utterance.onstart = () => setVoiceState('speaking');
-    utterance.onend = () => {
-      utteranceRef.current = null;
-      setVoiceState('idle');
-    };
-    utterance.onerror = () => {
-      utteranceRef.current = null;
-      setVoiceState('idle');
-    };
-
-    utteranceRef.current = utterance;
-    setVoiceState('loading');
-    synthesis.cancel();
-    synthesis.speak(utterance);
-  };
-
-  useEffect(() => {
-    if (
-      typeof window === 'undefined' ||
-      !('speechSynthesis' in window) ||
-      typeof SpeechSynthesisUtterance === 'undefined'
-    ) {
-      setVoiceState('unavailable');
-      return undefined;
-    }
-
-    const timer = window.setTimeout(() => {
-      playNarration();
-    }, 140);
-
-    return () => {
-      window.clearTimeout(timer);
-      stopNarration();
-    };
-  }, []);
-
-  const handleClose = () => {
-    stopNarration();
-    onClose();
-  };
-
-  const voiceLabel = voiceState === 'speaking'
-    ? `Speaking with ${voiceName}`
-    : voiceState === 'loading'
-      ? 'Preparing narration'
-    : voiceState === 'unavailable'
-      ? 'Voice narration depends on browser speech synthesis'
-      : `Ready with ${voiceName}`;
-
   return (
     <div className="absolute inset-0 z-30 flex items-start justify-center overflow-y-auto bg-[rgba(2,6,23,0.84)] p-3 backdrop-blur-sm sm:p-6">
       <div className="my-auto w-full max-w-xl rounded-[1.6rem] border border-white/10 bg-slate-950/96 p-4 text-left shadow-[0_30px_80px_rgba(2,6,23,0.72)] sm:p-5">
@@ -454,7 +367,7 @@ const WhatIsThisOverlay = ({ onClose }) => {
             <h2 className="font-arena-display text-2xl tracking-[0.08em] text-white sm:text-[2rem]">{WHAT_IS_THIS_CONTENT.title}</h2>
             <div className="mt-2 text-[10px] uppercase tracking-[0.22em] text-slate-300/78">{WHAT_IS_THIS_CONTENT.subtitle}</div>
           </div>
-          <button onClick={handleClose} className="flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-900 border border-slate-700 text-slate-400 transition-all hover:bg-slate-800 hover:text-white">
+          <button onClick={onClose} className="flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-900 border border-slate-700 text-slate-400 transition-all hover:bg-slate-800 hover:text-white">
             <X size={18} />
           </button>
         </div>
@@ -466,22 +379,6 @@ const WhatIsThisOverlay = ({ onClose }) => {
           <p className="mt-2 text-sm leading-5 text-slate-200">
             Forgetful Fish is Dandan tuned as an MTG AI lab. The whole point is learning how to fight over the same deck, the same graveyard, and the same future draws.
           </p>
-        </div>
-
-        <div className="mb-4 rounded-[1.15rem] border border-cyan-200/14 bg-cyan-400/[0.06] p-3">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <div className="font-arena-display text-[1rem] tracking-[0.05em] text-cyan-100">Voice Intro</div>
-              <div className="mt-2 text-[11px] uppercase tracking-[0.18em] text-cyan-50/72">{voiceLabel}</div>
-            </div>
-            <button
-              onClick={voiceState === 'speaking' ? stopNarration : playNarration}
-              className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-2xl border border-sky-200/70 bg-[#38bdf8] px-4 py-2.5 text-[11px] font-bold uppercase tracking-[0.08em] text-slate-950 shadow-[0_14px_28px_rgba(56,189,248,0.22)] transition-colors hover:bg-[#22c7ff]"
-            >
-              {voiceState === 'speaking' ? <VolumeX size={16} /> : <Volume2 size={16} />}
-              {voiceState === 'speaking' ? 'Stop Voice' : 'Play Voice'}
-            </button>
-          </div>
         </div>
 
         <div className="mb-4 rounded-[1.15rem] border border-white/10 bg-white/[0.04] p-3">
@@ -545,7 +442,7 @@ const WhatIsThisOverlay = ({ onClose }) => {
           ))}
         </div>
 
-        <button onClick={handleClose} className="mt-4 w-full rounded-2xl border border-slate-600 bg-slate-900 py-3 font-bold uppercase tracking-[0.08em] text-slate-100 shadow-[0_14px_28px_rgba(15,23,42,0.32)] transition-colors hover:bg-slate-800">
+        <button onClick={onClose} className="mt-4 w-full rounded-2xl border border-slate-600 bg-slate-900 py-3 font-bold uppercase tracking-[0.08em] text-slate-100 shadow-[0_14px_28px_rgba(15,23,42,0.32)] transition-colors hover:bg-slate-800">
           Close
         </button>
       </div>
@@ -1156,7 +1053,7 @@ const APP_VERSION = 'v0.3.1';
 const ONLINE_MULTIPLAYER_ENABLED = false;
 const WHAT_IS_THIS_CONTENT = {
   title: 'What Is This?',
-  subtitle: 'A voiced intro to Forgetful Fish',
+  subtitle: 'A quick intro to Forgetful Fish',
   sections: [
     {
       heading: 'The Story',
@@ -1170,8 +1067,7 @@ const WHAT_IS_THIS_CONTENT = {
       heading: 'Why Dandan',
       body: 'Dandan is perfect for that experiment because the card pool is small, but the decisions are still sharp and deep.'
     }
-  ],
-  narration: "Welcome to Forgetful Fish. This is my version of Dandan, the strange Magic format where both players share the same library and the same graveyard. I built it as an experiment to create an AI that can play Magic: The Gathering in a format full of memory, prediction, bluffing, and stack battles. Dandan is the perfect test bed because the cards are few, but the decisions are sharp. Every Brainstorm, Memory Lapse, Predict, and fish attack teaches the AI something about timing, pressure, and hidden information."
+  ]
 };
 const WHAT_IS_THIS_CARD_SPOTLIGHTS = [
   {
@@ -1199,16 +1095,6 @@ const WHAT_IS_THIS_CARD_SPOTLIGHTS = [
     body: 'Predict rewards remembering and engineering the top card. That is why Dandan is such a strong MTG AI experiment: it turns hidden information into planned information.'
   }
 ];
-const NARRATION_VOICE_NAME_PREFERENCES = ['Samantha', 'Zira', 'Aria', 'Libby', 'Jenny', 'Google UK English Female', 'Google US English', 'Microsoft'];
-const pickNarrationVoice = (voices = []) => {
-  if (!Array.isArray(voices) || voices.length === 0) return null;
-  const englishVoices = voices.filter((voice) => /^en\b/i.test(String(voice?.lang || '')) || /english/i.test(String(voice?.name || '')));
-  for (const preferredName of NARRATION_VOICE_NAME_PREFERENCES) {
-    const match = englishVoices.find((voice) => String(voice?.name || '').includes(preferredName));
-    if (match) return match;
-  }
-  return englishVoices[0] || voices[0] || null;
-};
 const ADVENTURE_ROUTE = ['shark', 'archivist', 'eel', 'siren', 'undertow', 'cartographer', 'piranha', 'hermit', 'tortoise', 'leviathan'];
 const ADVENTURE_MAP_LAYOUT = [
   { left: 12, top: 78 },
