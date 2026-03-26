@@ -400,10 +400,10 @@ const WhatIsThisOverlay = ({ onClose }) => {
             </div>
             <div className="rounded-[1rem] border border-slate-800 bg-slate-900/70 p-3">
               <div className="flex items-center gap-2 text-cyan-100">
-                <ArrowLeftRight size={15} />
-                <span className="text-[11px] font-black uppercase tracking-[0.18em]">One Small Card Pool</span>
+                <Swords size={15} />
+                <span className="text-[11px] font-black uppercase tracking-[0.18em]">The Fish Rule</span>
               </div>
-              <p className="mt-2 text-sm leading-5 text-slate-300">That makes it a great MTG AI test bed: fewer cards, cleaner decisions, deeper reads.</p>
+              <p className="mt-2 text-sm leading-5 text-slate-300">Dandan attacks only into a player who controls an Island, and it dies if its controller controls none. Lands are combat text here.</p>
             </div>
           </div>
         </div>
@@ -1057,15 +1057,19 @@ const WHAT_IS_THIS_CONTENT = {
   sections: [
     {
       heading: 'The Story',
-      body: 'Forgetful Fish is my playable Dandan build: one shared library, one shared graveyard, and a lot of tension over the top card.'
+      body: 'Forgetful Fish is my playable Dandan build: one shared library, one shared graveyard, and every draw step changing both players\' plans.'
     },
     {
       heading: 'Why I Built It',
       body: 'I built it as an experiment to teach an AI to play Magic: The Gathering in a format with real timing, bluffing, and memory.'
     },
     {
-      heading: 'Why Dandan',
-      body: 'Dandan is perfect for that experiment because the card pool is small, but the decisions are still sharp and deep.'
+      heading: 'Why Dandan Works',
+      body: 'The card pool is small, but the decisions stay sharp: stack fights, topdeck planning, graveyard counting, and constant combat math.'
+    },
+    {
+      heading: 'Meet Tortoise',
+      body: 'One of the Rivals, Tortoise, abuses the fish rule on purpose: it mulligans for blue lands that are not Islands, keeps casting spells, and leaves opposing Dandans unable to attack.'
     }
   ]
 };
@@ -1074,7 +1078,7 @@ const WHAT_IS_THIS_CARD_SPOTLIGHTS = [
     key: 'dandan',
     card: CARDS.DANDAN,
     title: 'The Fish',
-    body: 'Dandan is basically the only thing that kills. The whole format bends around when a fish can attack, who can keep it alive, and who can steal it.'
+    body: 'Dandan is the main kill, but it can attack only if the defending player controls an Island. If its controller stops controlling Islands, the fish dies too.'
   },
   {
     key: 'memory-lapse',
@@ -1089,10 +1093,10 @@ const WHAT_IS_THIS_CARD_SPOTLIGHTS = [
     body: 'Brainstorm matters more here because setting up the top of the library changes not only your future, but what your opponent might be forced to draw too.'
   },
   {
-    key: 'predict',
-    card: CARDS.PREDICT,
-    title: 'Memory Test',
-    body: 'Predict rewards remembering and engineering the top card. That is why Dandan is such a strong MTG AI experiment: it turns hidden information into planned information.'
+    key: 'tortoise-plan',
+    card: CARDS.TEMPLE,
+    title: 'The Tortoise Plan',
+    body: 'Some lands make blue mana without being Islands. That lets the Tortoise rival keep casting spells while opposing Dandans stay stranded on the shore.'
   }
 ];
 const ADVENTURE_ROUTE = ['shark', 'archivist', 'eel', 'siren', 'undertow', 'cartographer', 'piranha', 'hermit', 'tortoise', 'leviathan'];
