@@ -145,6 +145,11 @@ const AudioEngine = {
     this.playSplash(780, 220, 0.28, 0.05);
     this.playTone(620, 'triangle', 0.22, 0.04, 980); 
     setTimeout(() => this.playBubble(1120, 0.13, 0.03), 120);
+  },
+  playMatchFound() {
+    this.playTone(440, 'triangle', 0.14, 0.03, 660);
+    setTimeout(() => this.playBubble(720, 0.11, 0.03), 70);
+    setTimeout(() => this.playTone(880, 'sine', 0.18, 0.045, 1180), 140);
   }
 };
 
@@ -2214,6 +2219,98 @@ const PlayOnlineDialog = ({
   );
 };
 
+const PeerStartControls = ({
+  playerName,
+  opponentName,
+  localReady,
+  remoteReady,
+  note,
+  error,
+  canStart,
+  primaryLabel,
+  onStart,
+  onLeave,
+  leaveLabel
+}) => (
+  <div className="space-y-4">
+    <div className="grid gap-2 sm:grid-cols-2">
+      <div className={`rounded-[1.25rem] border px-4 py-3 text-left ${localReady ? 'border-emerald-300/40 bg-emerald-500/10 text-emerald-50' : 'border-slate-700 bg-slate-900/72 text-slate-200'}`}>
+        <div className="text-[10px] uppercase tracking-[0.18em] opacity-70">You</div>
+        <div className="mt-1 text-sm font-bold break-all">{playerName}</div>
+        <div className="mt-2 text-[11px] uppercase tracking-[0.16em]">{localReady ? 'Ready' : 'Waiting'}</div>
+      </div>
+      <div className={`rounded-[1.25rem] border px-4 py-3 text-left ${remoteReady ? 'border-cyan-300/40 bg-cyan-500/10 text-cyan-50' : 'border-slate-700 bg-slate-900/72 text-slate-200'}`}>
+        <div className="text-[10px] uppercase tracking-[0.18em] opacity-70">Opponent</div>
+        <div className="mt-1 text-sm font-bold break-all">{opponentName}</div>
+        <div className="mt-2 text-[11px] uppercase tracking-[0.16em]">{remoteReady ? 'Ready' : 'Waiting'}</div>
+      </div>
+    </div>
+    {note && (
+      <div className="rounded-[1.2rem] border border-white/10 bg-white/[0.045] px-4 py-3 text-sm leading-6 text-slate-300">
+        {note}
+      </div>
+    )}
+    {error && (
+      <div className="rounded-[1.2rem] border border-rose-400/35 bg-rose-500/10 px-4 py-3 text-sm leading-6 text-rose-200">
+        {error}
+      </div>
+    )}
+    <button
+      onClick={onStart}
+      disabled={!canStart}
+      className="w-full py-3 bg-[#38bdf8] hover:bg-[#22c7ff] disabled:bg-slate-700 disabled:text-slate-400 text-slate-950 rounded-xl font-bold tracking-widest uppercase border border-sky-200/70 shadow-[0_0_24px_rgba(56,189,248,0.28)] transition-colors flex items-center justify-center gap-2"
+    >
+      {canStart ? <Play fill="currentColor" size={16} /> : <RefreshCw size={16} className="animate-spin" />}
+      {primaryLabel}
+    </button>
+    <button onClick={onLeave} className="w-full py-3 bg-slate-900/92 hover:bg-slate-800 text-slate-100 rounded-xl font-bold tracking-widest uppercase border border-slate-600 transition-colors">
+      {leaveLabel}
+    </button>
+  </div>
+);
+
+const PeerRoomLobbyScreen = ({
+  playerName,
+  opponentName,
+  localReady,
+  remoteReady,
+  note,
+  error,
+  canStart,
+  primaryLabel,
+  onStart,
+  onLeave,
+  leaveLabel
+}) => (
+  <div className="h-dvh bg-slate-950 text-slate-100 flex items-center justify-center p-6">
+    <div className="max-w-md w-full rounded-2xl border border-slate-700 bg-slate-900/80 p-8 shadow-2xl text-center space-y-6">
+      <div className="inline-flex items-center gap-2 rounded-full border border-cyan-300/35 bg-cyan-400/10 px-4 py-2 text-[10px] font-black uppercase tracking-[0.18em] text-cyan-100">
+        <Wifi size={14} />
+        Room Connected
+      </div>
+      <div className="space-y-2">
+        <h1 className="font-arena-display text-4xl font-black tracking-[0.1em] uppercase text-transparent bg-clip-text bg-gradient-to-b from-slate-100 to-slate-400">
+          Start Game
+        </h1>
+        <p className="text-sm uppercase tracking-[0.18em] text-slate-400 break-all">{playerName} vs {opponentName}</p>
+      </div>
+      <PeerStartControls
+        playerName={playerName}
+        opponentName={opponentName}
+        localReady={localReady}
+        remoteReady={remoteReady}
+        note={note}
+        error={error}
+        canStart={canStart}
+        primaryLabel={primaryLabel}
+        onStart={onStart}
+        onLeave={onLeave}
+        leaveLabel={leaveLabel}
+      />
+    </div>
+  </div>
+);
+
 const HomeVariantBar = () => null;
 
 const LandingScreen = ({
@@ -2695,6 +2792,8 @@ export default function App() {
     status: 'idle',
     playerDisplayName: '',
     opponentDisplayName: '',
+    localReady: false,
+    remoteReady: false,
     roomId: '',
     token: '',
     inviteUrl: '',
@@ -2792,6 +2891,12 @@ export default function App() {
   const isOpponentClockRunning = peerClock?.runningFor === 'ai';
   const peerOpponentName = peerUi.opponentDisplayName || 'Friend';
   const peerPlayerName = peerUi.playerDisplayName || 'You';
+  const canPressPeerStartGame = peerUi.status === 'connected' && !peerUi.localReady;
+  const peerStartButtonLabel = peerUi.status !== 'connected'
+    ? 'Reconnecting...'
+    : peerUi.localReady
+      ? (peerUi.remoteReady ? 'Starting Game...' : 'Waiting For Opponent')
+      : 'Start Game';
   const canPlayerAttemptAttackSelection = !isAiMirror &&
     state.turn === 'player' &&
     state.phase === 'declare_attackers' &&
@@ -2920,6 +3025,24 @@ export default function App() {
     pushPeerStateSync(state);
   }, [state, peerUi.role]);
   useEffect(() => {
+    if (state.gameMode !== 'peer' || !state.started || state.winner) return;
+    updatePeerUi((current) => (
+      current.localReady || current.remoteReady
+        ? { ...current, localReady: false, remoteReady: false, error: '' }
+        : current
+    ));
+  }, [state.gameMode, state.started, state.winner]);
+  useEffect(() => {
+    if (state.gameMode !== 'peer' || !state.winner) return;
+    updatePeerUi((current) => ({
+      ...current,
+      localReady: false,
+      remoteReady: false,
+      error: '',
+      note: 'Match finished. Both players need to press Start Game for a rematch.'
+    }));
+  }, [state.gameMode, state.winner]);
+  useEffect(() => {
     if (state.gameMode !== 'peer' || peerUi.role) return;
     peerClockRef.current = null;
     setPeerClock(null);
@@ -3002,6 +3125,71 @@ export default function App() {
     }));
   };
 
+  const buildPeerStartNote = (current) => {
+    if (current.status === 'reconnecting') {
+      return 'Connection dropped. Waiting for the room to recover before you can start.';
+    }
+    if (current.localReady && current.remoteReady) {
+      return 'Both players are ready. Starting the game...';
+    }
+    if (current.localReady) {
+      return `Waiting for ${current.opponentDisplayName || 'your opponent'} to press Start Game.`;
+    }
+    if (current.remoteReady) {
+      return `${current.opponentDisplayName || 'Your opponent'} is ready. Press Start Game when you are.`;
+    }
+    return 'Both players need to press Start Game.';
+  };
+
+  const startPeerGameFromRoom = () => {
+    const currentState = latestStateRef.current;
+    updatePeerUi((current) => ({
+      ...current,
+      localReady: false,
+      remoteReady: false,
+      error: '',
+      note: 'Both players are ready. Starting the game...'
+    }));
+    rawDispatch({
+      type: 'START_GAME',
+      mode: 'peer',
+      difficulty: currentState?.difficulty || selectedDifficulty
+    });
+  };
+
+  const handlePeerStartGame = () => {
+    AudioEngine.init();
+    const connection = peerConnectionRef.current;
+    if (!connection?.open || peerUi.status !== 'connected' || peerUi.localReady) return;
+
+    let shouldStart = false;
+    updatePeerUi((current) => {
+      const next = {
+        ...current,
+        localReady: true,
+        error: '',
+        note: buildPeerStartNote({
+          ...current,
+          localReady: true
+        })
+      };
+      shouldStart = next.role === 'host' && next.remoteReady;
+      return next;
+    });
+
+    try {
+      connection.send({
+        type: 'peer-ready',
+        protocol: PEER_PROTOCOL_VERSION,
+        ready: true
+      });
+    } catch (_error) {}
+
+    if (shouldStart) {
+      startPeerGameFromRoom();
+    }
+  };
+
   const clearPeerTimers = () => {
     if (peerReconnectTimerRef.current) {
       window.clearTimeout(peerReconnectTimerRef.current);
@@ -3061,6 +3249,8 @@ export default function App() {
       status: 'idle',
       playerDisplayName: '',
       opponentDisplayName: '',
+      localReady: false,
+      remoteReady: false,
       roomId: '',
       token: '',
       inviteUrl: '',
@@ -3255,6 +3445,8 @@ export default function App() {
           return;
         }
         if (message.type === 'online-match-found' && message.roomId && message.token) {
+          AudioEngine.init();
+          AudioEngine.playMatchFound();
           const matchSession = {
             roomId: message.roomId,
             token: message.token,
@@ -3319,6 +3511,7 @@ export default function App() {
   };
 
   const beginOnlineMatchmaking = async () => {
+    AudioEngine.init();
     const safeName = sanitizeOnlinePlayerName(onlineUi.playerName);
     if (!safeName) {
       updateOnlineUi({
@@ -3435,6 +3628,8 @@ export default function App() {
           bucketLabel: bucketInfo.bucketLabel
         };
 
+        AudioEngine.init();
+        AudioEngine.playMatchFound();
         onlineMatchRef.current = {
           ...onlineMatchRef.current,
           pendingMatch: matchSession,
@@ -3552,6 +3747,26 @@ export default function App() {
         });
         return;
       }
+      if (message.type === 'session-accepted') {
+        updatePeerUi((current) => ({
+          ...current,
+          open: false,
+          role: 'guest',
+          status: 'connected',
+          localReady: false,
+          remoteReady: false,
+          error: '',
+          note: noteOverrides.connected || 'Friend connected. Both players need to press Start Game.'
+        }));
+        savePeerSessionDraft({
+          lastMode: 'join',
+          role: 'guest',
+          roomId: peerSessionRef.current.roomId,
+          token: peerSessionRef.current.token,
+          clientId: peerSessionRef.current.clientId
+        });
+        return;
+      }
       if (message.type === 'state-sync' && message.state) {
         rawDispatch({ type: 'HYDRATE_PEER_STATE', state: inflatePeerGuestViewState(message.state) });
         peerClockRef.current = message.clock || null;
@@ -3560,6 +3775,8 @@ export default function App() {
           open: false,
           role: 'guest',
           status: 'connected',
+          localReady: false,
+          remoteReady: false,
           error: '',
           note: noteOverrides.connected || 'Friend match connected.'
         });
@@ -3604,6 +3821,17 @@ export default function App() {
           error: message.reason || 'The host rejected the last action.',
           note: 'The match is still open.'
         });
+        return;
+      }
+      if (message.type === 'peer-ready') {
+        updatePeerUi((current) => ({
+          ...current,
+          remoteReady: Boolean(message.ready),
+          note: buildPeerStartNote({
+            ...current,
+            remoteReady: Boolean(message.ready)
+          })
+        }));
       }
     });
 
@@ -3614,6 +3842,8 @@ export default function App() {
       updatePeerUi({
         role: 'guest',
         status: 'reconnecting',
+        localReady: false,
+        remoteReady: false,
         error: '',
         note: noteOverrides.reconnecting || 'Connection dropped. Trying to rejoin the room...'
       });
@@ -3632,6 +3862,8 @@ export default function App() {
       updatePeerUi({
         role: 'guest',
         status: 'reconnecting',
+        localReady: false,
+        remoteReady: false,
         error: '',
         note: noteOverrides.reconnecting || 'Signal error. Trying to reconnect...'
       });
@@ -3677,6 +3909,8 @@ export default function App() {
       status: 'creating',
       playerDisplayName,
       opponentDisplayName,
+      localReady: false,
+      remoteReady: false,
       roomId,
       token,
       inviteUrl,
@@ -3745,16 +3979,16 @@ export default function App() {
           open: false,
           role: 'host',
           status: 'connected',
+          localReady: false,
+          remoteReady: false,
           error: '',
-          note: noteOverrides.connected || 'Friend connected.'
+          note: noteOverrides.connected || 'Friend connected. Both players need to press Start Game.'
         });
         try {
           connection.send({ type: 'session-accepted', protocol: PEER_PROTOCOL_VERSION });
         } catch (_error) {}
         const currentState = latestStateRef.current;
-        if (!currentState.started || currentState.gameMode !== 'peer' || currentState.winner) {
-          rawDispatch({ type: 'START_GAME', mode: 'peer', difficulty: selectedDifficulty });
-        } else {
+        if (currentState.started && currentState.gameMode === 'peer' && !currentState.winner) {
           pushPeerStateSync(currentState);
         }
       });
@@ -3770,6 +4004,25 @@ export default function App() {
         }
         if (message.type === 'hello') {
           pushPeerStateSync(latestStateRef.current);
+          return;
+        }
+        if (message.type === 'peer-ready') {
+          let shouldStart = false;
+          updatePeerUi((current) => {
+            const next = {
+              ...current,
+              remoteReady: Boolean(message.ready),
+              note: buildPeerStartNote({
+                ...current,
+                remoteReady: Boolean(message.ready)
+              })
+            };
+            shouldStart = next.role === 'host' && next.localReady && next.remoteReady && next.status === 'connected';
+            return next;
+          });
+          if (shouldStart) {
+            startPeerGameFromRoom();
+          }
           return;
         }
         if (message.type === 'peer-action' && message.action) {
@@ -3790,6 +4043,8 @@ export default function App() {
         updatePeerUi({
           role: 'host',
           status: 'reconnecting',
+          localReady: false,
+          remoteReady: false,
           error: '',
           note: noteOverrides.guestDisconnected || 'Friend disconnected. Keeping the room alive for a reconnect...'
         });
@@ -3811,6 +4066,8 @@ export default function App() {
         updatePeerUi({
           role: 'host',
           status: 'reconnecting',
+          localReady: false,
+          remoteReady: false,
           error: '',
           note: noteOverrides.reconnecting || 'Room signal hiccup. Waiting for the guest to reconnect...'
         });
@@ -3822,6 +4079,8 @@ export default function App() {
       updatePeerUi({
         role: 'host',
         status: 'reconnecting',
+        localReady: false,
+        remoteReady: false,
         error: '',
         note: noteOverrides.reconnecting || 'Lost contact with the signaling server. Retrying...'
       });
@@ -3835,6 +4094,8 @@ export default function App() {
         mode: 'host',
         role: 'host',
         status: 'error',
+        localReady: false,
+        remoteReady: false,
         error: error?.message || noteOverrides.error || 'Unable to open the friend room.',
         note: noteOverrides.errorNote || 'Try again or check the PeerServer configuration.'
       });
@@ -3885,6 +4146,8 @@ export default function App() {
       status: 'connecting',
       playerDisplayName,
       opponentDisplayName,
+      localReady: false,
+      remoteReady: false,
       roomId: '',
       token: '',
       inviteUrl: '',
@@ -3921,6 +4184,8 @@ export default function App() {
         mode: 'join',
         role: 'guest',
         status: 'error',
+        localReady: false,
+        remoteReady: false,
         error: error?.type === 'peer-unavailable'
           ? (noteOverrides.unavailable || 'Host not found. Make sure the host opened the room first.')
           : (error?.message || noteOverrides.error || 'Unable to join the friend room.'),
@@ -4280,6 +4545,24 @@ export default function App() {
 
   if (!menuAssetsReady) {
     return <Preloader onComplete={() => setMenuAssetsReady(true)} />;
+  }
+
+  if (!state.started && isPeerSessionActive && ['connected', 'reconnecting'].includes(peerUi.status)) {
+    return (
+      <PeerRoomLobbyScreen
+        playerName={peerPlayerName}
+        opponentName={peerOpponentName}
+        localReady={peerUi.localReady}
+        remoteReady={peerUi.remoteReady}
+        note={peerUi.note}
+        error={peerUi.error}
+        canStart={canPressPeerStartGame}
+        primaryLabel={peerStartButtonLabel}
+        onStart={handlePeerStartGame}
+        onLeave={returnToMenu}
+        leaveLabel={peerUi.role === 'host' ? 'Close Room' : 'Leave Room'}
+      />
+    );
   }
 
   if (!state.started) {
@@ -4709,14 +4992,19 @@ export default function App() {
             </>
           ) : isPeerMatch ? (
             <>
-              {peerUi.role === 'host' ? (
-                <button onClick={() => rawDispatch({ type: 'START_GAME', mode: 'peer', difficulty: state.difficulty })} className="w-full py-3 bg-[#38bdf8] hover:bg-[#22c7ff] text-slate-950 rounded-xl font-bold tracking-widest uppercase border border-sky-200/70 shadow-[0_0_24px_rgba(56,189,248,0.28)] transition-colors">Play Again</button>
-              ) : (
-                <div className="w-full py-3 rounded-xl border border-slate-700 bg-slate-900/72 text-slate-300 text-sm tracking-[0.16em] uppercase">
-                  Waiting For Host
-                </div>
-              )}
-              <button onClick={returnToMenu} className="w-full py-3 bg-slate-900/92 hover:bg-slate-800 text-slate-100 rounded-xl font-bold tracking-widest uppercase border border-slate-600 transition-colors">{peerUi.role === 'host' ? 'Close Room' : 'Leave Room'}</button>
+              <PeerStartControls
+                playerName={peerPlayerName}
+                opponentName={peerOpponentName}
+                localReady={peerUi.localReady}
+                remoteReady={peerUi.remoteReady}
+                note={peerUi.note}
+                error={peerUi.error}
+                canStart={canPressPeerStartGame}
+                primaryLabel={peerStartButtonLabel}
+                onStart={handlePeerStartGame}
+                onLeave={returnToMenu}
+                leaveLabel={peerUi.role === 'host' ? 'Close Room' : 'Leave Room'}
+              />
             </>
           ) : (
             <>
