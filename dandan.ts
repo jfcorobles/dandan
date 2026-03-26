@@ -286,11 +286,11 @@ const POLICY_CONTENT = {
     sections: [
       {
         heading: 'What This Site Stores',
-        body: 'Forgetful Fish stores a few gameplay and preference values in your browser so the app can work correctly. This includes your current saved game, your adventure progress, your preferred online nickname, your selected player avatar or uploaded avatar image, and a visual preference for the landing background.'
+        body: 'Forgetful Fish stores a few gameplay and preference values in your browser so the app can work correctly. This includes your current saved game, your adventure progress, your selected player avatar or uploaded avatar image, and a visual preference for the landing background.'
       },
       {
         heading: 'What This Site Does Not Collect',
-        body: 'This site does not ask for your real name, email address, or account details. If you use online matchmaking, you can set a nickname and avatar that stay in your browser and are only used to coordinate peer-to-peer rooms and identify you to other players. The app also does not use advertising trackers or analytics tools in the current version.'
+        body: 'This site does not ask for your real name, email address, or account details. The current build does not offer browser-to-browser matchmaking. The app also does not use advertising trackers or analytics tools in the current version.'
       },
       {
         heading: 'Third-Party Requests',
@@ -312,7 +312,7 @@ const POLICY_CONTENT = {
       },
       {
         heading: 'Local Storage',
-        body: 'The app uses browser local storage for functional features: saving an unfinished match so you can continue later, storing adventure progress, remembering your online nickname, remembering your selected avatar or uploaded avatar image, and remembering the landing background selection.'
+        body: 'The app uses browser local storage for functional features: saving an unfinished match so you can continue later, storing adventure progress, remembering your selected avatar or uploaded avatar image, and remembering the landing background selection.'
       },
       {
         heading: 'Why It Is Used',
@@ -958,6 +958,8 @@ const OpeningRollD20 = ({
   );
 };
 const APP_VERSION = 'v0.3.1';
+const ONLINE_MULTIPLAYER_ENABLED = false;
+const ONLINE_MULTIPLAYER_DISABLED_NOTE = 'Online multiplayer was removed from this build to avoid exposing player IP addresses through direct browser-to-browser matches.';
 const ADVENTURE_ROUTE = ['shark', 'archivist', 'eel', 'siren', 'undertow', 'cartographer', 'piranha', 'hermit', 'tortoise', 'leviathan'];
 const ADVENTURE_MAP_LAYOUT = [
   { left: 12, top: 78 },
@@ -1057,6 +1059,16 @@ const readPeerInviteParams = () => {
     token: url.searchParams.get('peerToken') || '',
     mode: url.searchParams.get('peerMode') || ''
   };
+};
+const stripPeerInviteParamsFromUrl = () => {
+  if (typeof window === 'undefined') return;
+  const url = new URL(window.location.href);
+  const hadInviteParams = ['peerRoom', 'peerToken', 'peerMode'].some((param) => url.searchParams.has(param));
+  if (!hadInviteParams) return;
+  url.searchParams.delete('peerRoom');
+  url.searchParams.delete('peerToken');
+  url.searchParams.delete('peerMode');
+  window.history.replaceState({}, document.title, `${url.pathname}${url.search}${url.hash}`);
 };
 const splitPeerIceEnvList = (value = '') => value
   .split(/[\n,]+/)
@@ -2165,12 +2177,14 @@ const HomeMenuPanel = ({ variantId, onAdventure, onQuickGame, onOnline, onContin
               labelClassName="text-2xl sm:text-3xl font-semibold tracking-[-0.03em] text-slate-950"
               indicatorClassName="border-rose-300/50 bg-rose-50/80 text-rose-700"
             />
-            <HomeActionButton
-              label="Play Online"
-              onClick={onOnline}
-              className="min-h-[96px] rounded-[1.8rem] border border-cyan-200/45 bg-cyan-50/78 px-5 py-5 text-left shadow-[0_20px_44px_rgba(15,23,42,0.16)] backdrop-blur-[2px]"
-              labelClassName="text-xl sm:text-[2rem] font-semibold tracking-[-0.03em] text-slate-950"
-            />
+            {ONLINE_MULTIPLAYER_ENABLED && (
+              <HomeActionButton
+                label="Play Online"
+                onClick={onOnline}
+                className="min-h-[96px] rounded-[1.8rem] border border-cyan-200/45 bg-cyan-50/78 px-5 py-5 text-left shadow-[0_20px_44px_rgba(15,23,42,0.16)] backdrop-blur-[2px]"
+                labelClassName="text-xl sm:text-[2rem] font-semibold tracking-[-0.03em] text-slate-950"
+              />
+            )}
             {canContinue && (
               <HomeActionButton
                 label="Continue"
@@ -2209,12 +2223,14 @@ const HomeMenuPanel = ({ variantId, onAdventure, onQuickGame, onOnline, onContin
           labelClassName="text-2xl sm:text-[2rem] font-semibold tracking-[-0.03em] text-slate-950"
           indicatorClassName="border-rose-300/60 bg-rose-50 text-rose-700"
         />
-        <HomeActionButton
-          label="Play Online"
-          onClick={onOnline}
-          className="rounded-[1.55rem] border border-cyan-300/70 bg-cyan-50/88 px-5 py-5 text-left shadow-[0_18px_38px_rgba(15,23,42,0.18)] backdrop-blur-[2px]"
-          labelClassName="text-2xl sm:text-[2rem] font-semibold tracking-[-0.03em] text-slate-950"
-        />
+        {ONLINE_MULTIPLAYER_ENABLED && (
+          <HomeActionButton
+            label="Play Online"
+            onClick={onOnline}
+            className="rounded-[1.55rem] border border-cyan-300/70 bg-cyan-50/88 px-5 py-5 text-left shadow-[0_18px_38px_rgba(15,23,42,0.18)] backdrop-blur-[2px]"
+            labelClassName="text-2xl sm:text-[2rem] font-semibold tracking-[-0.03em] text-slate-950"
+          />
+        )}
         {canContinue && (
           <HomeActionButton
             label="Continue"
@@ -2255,12 +2271,14 @@ const HomeMenuPanel = ({ variantId, onAdventure, onQuickGame, onOnline, onContin
             labelClassName="text-2xl sm:text-[2.2rem] font-semibold tracking-[-0.03em] text-slate-950"
             indicatorClassName="border-rose-300/55 bg-rose-50/90 text-rose-700"
           />
-          <HomeActionButton
-            label="Play Online"
-            onClick={onOnline}
-            className="rounded-[1.9rem] border border-cyan-200/50 bg-cyan-50/76 px-6 py-5 text-left shadow-[0_18px_36px_rgba(15,23,42,0.16)] backdrop-blur-[2px] sm:ml-11"
-            labelClassName="text-2xl sm:text-[2.2rem] font-semibold tracking-[-0.03em] text-slate-950"
-          />
+          {ONLINE_MULTIPLAYER_ENABLED && (
+            <HomeActionButton
+              label="Play Online"
+              onClick={onOnline}
+              className="rounded-[1.9rem] border border-cyan-200/50 bg-cyan-50/76 px-6 py-5 text-left shadow-[0_18px_36px_rgba(15,23,42,0.16)] backdrop-blur-[2px] sm:ml-11"
+              labelClassName="text-2xl sm:text-[2.2rem] font-semibold tracking-[-0.03em] text-slate-950"
+            />
+          )}
           {canContinue && (
             <HomeActionButton
               label="Continue"
@@ -2298,12 +2316,14 @@ const HomeMenuPanel = ({ variantId, onAdventure, onQuickGame, onOnline, onContin
           labelClassName="text-3xl sm:text-[3rem] font-semibold tracking-[-0.04em] text-slate-950"
           indicatorClassName="border-rose-300/60 bg-rose-50/95 text-rose-700"
         />
-        <HomeActionButton
-          label="Play Online"
-          onClick={onOnline}
-          className="rounded-[2rem] border border-cyan-200/48 bg-cyan-50/78 px-6 py-6 text-left shadow-[0_20px_44px_rgba(15,23,42,0.16)] backdrop-blur-[2px]"
-          labelClassName="text-3xl sm:text-[3rem] font-semibold tracking-[-0.04em] text-slate-950"
-        />
+        {ONLINE_MULTIPLAYER_ENABLED && (
+          <HomeActionButton
+            label="Play Online"
+            onClick={onOnline}
+            className="rounded-[2rem] border border-cyan-200/48 bg-cyan-50/78 px-6 py-6 text-left shadow-[0_20px_44px_rgba(15,23,42,0.16)] backdrop-blur-[2px]"
+            labelClassName="text-3xl sm:text-[3rem] font-semibold tracking-[-0.04em] text-slate-950"
+          />
+        )}
         {canContinue && (
           <HomeActionButton
             label="Continue"
@@ -2337,12 +2357,14 @@ const HomeMenuPanel = ({ variantId, onAdventure, onQuickGame, onOnline, onContin
         className="w-full max-w-[15.75rem] min-h-[56px] rounded-full bg-slate-800/44 p-0 shadow-[0_18px_36px_rgba(15,23,42,0.24)] hover:bg-slate-800/54"
         labelClassName="text-[1.2rem] sm:text-[1.32rem] tracking-[0.02em] text-white"
       />
-      <HomeActionButton
-        label="Play Online"
-        onClick={onOnline}
-        className="w-full max-w-[15.75rem] min-h-[56px] rounded-full bg-cyan-900/40 p-0 shadow-[0_18px_36px_rgba(15,23,42,0.24)] hover:bg-cyan-900/52"
-        labelClassName="text-[1.2rem] sm:text-[1.32rem] tracking-[0.02em] text-white"
-      />
+      {ONLINE_MULTIPLAYER_ENABLED && (
+        <HomeActionButton
+          label="Play Online"
+          onClick={onOnline}
+          className="w-full max-w-[15.75rem] min-h-[56px] rounded-full bg-cyan-900/40 p-0 shadow-[0_18px_36px_rgba(15,23,42,0.24)] hover:bg-cyan-900/52"
+          labelClassName="text-[1.2rem] sm:text-[1.32rem] tracking-[0.02em] text-white"
+        />
+      )}
       {canContinue && (
         <HomeActionButton
           label="Continue"
@@ -2439,7 +2461,7 @@ const AvatarSettingsDialog = ({
               <img src={avatarSrc} alt="Your avatar" className="h-11 w-11 rounded-[1rem] object-cover border border-cyan-200/35" />
               <h2 className="font-arena-display text-2xl tracking-[0.08em] text-white">Player Avatar</h2>
             </div>
-            <p className="mt-2 text-sm text-slate-400">Choose one of the rival portraits or upload your own image. This avatar is used in local matches, friend rooms, and arena games.</p>
+            <p className="mt-2 text-sm text-slate-400">Choose one of the rival portraits or upload your own image. This avatar is used in local matches and saved only in this browser.</p>
           </div>
           <button onClick={onClose} className="flex h-10 w-10 items-center justify-center rounded-2xl border border-slate-700 bg-slate-900 text-slate-400 transition-all hover:bg-slate-800 hover:text-white">
             <X size={18} />
@@ -3402,6 +3424,11 @@ const LandingScreen = ({
                     canContinue={canContinueGame}
                     onSettings={onOpenSettings}
                   />
+                  {!ONLINE_MULTIPLAYER_ENABLED && (
+                    <div className="mt-4 max-w-xl rounded-[1.4rem] border border-amber-300/25 bg-amber-400/8 px-4 py-3 text-sm leading-6 text-amber-100 shadow-[0_16px_36px_rgba(15,23,42,0.16)]">
+                      {ONLINE_MULTIPLAYER_DISABLED_NOTE}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -3566,14 +3593,14 @@ const LandingScreen = ({
       />
 
       {showQuickGameDialog && <QuickGameDialog selectedDifficulty={selectedDifficulty} onClose={onQuickGameClose} onStart={onQuickGameStart} />}
-      {showOnlineModeDialog && (
+      {ONLINE_MULTIPLAYER_ENABLED && showOnlineModeDialog && (
         <OnlineModeDialog
           onClose={onCloseOnlineModeDialog}
           onChooseFriend={onChooseOnlineFriend}
           onChooseArena={onChooseOnlineArena}
         />
       )}
-      {showOnlineDialog && (
+      {ONLINE_MULTIPLAYER_ENABLED && showOnlineDialog && (
         <PlayOnlineDialog
           playerAvatarSrc={playerAvatarSrc}
           playerName={onlinePlayerName}
@@ -3590,7 +3617,7 @@ const LandingScreen = ({
           onCancel={onCancelOnlineMatchmaking}
         />
       )}
-      {showFriendsDialog && (
+      {ONLINE_MULTIPLAYER_ENABLED && showFriendsDialog && (
         <PlayWithFriendsDialog
           playerAvatarSrc={playerAvatarSrc}
           mode={friendDialogMode}
@@ -3622,8 +3649,8 @@ const LandingScreen = ({
 
 // --- MAIN APP COMPONENT ---
 export default function App() {
-  const inviteParams = readPeerInviteParams();
-  const peerSessionDraft = loadPeerSessionDraft();
+  const inviteParams = ONLINE_MULTIPLAYER_ENABLED ? readPeerInviteParams() : { roomId: '', token: '', mode: '' };
+  const peerSessionDraft = ONLINE_MULTIPLAYER_ENABLED ? loadPeerSessionDraft() : null;
   const restoredJoinRoomId = inviteParams.roomId || (peerSessionDraft?.role === 'guest' ? peerSessionDraft.roomId || '' : '');
   const restoredJoinToken = inviteParams.token || (peerSessionDraft?.role === 'guest' ? peerSessionDraft.token || '' : '');
   const initialOnlineProfileRef = useRef(loadOnlineProfile());
@@ -3837,6 +3864,42 @@ export default function App() {
   useEffect(() => {
     latestStateRef.current = state;
   }, [state]);
+  useEffect(() => {
+    if (ONLINE_MULTIPLAYER_ENABLED) return;
+    stripPeerInviteParamsFromUrl();
+    savePeerSessionDraft(null);
+    updatePeerUi((current) => (
+      current.open || current.role || current.error || current.note || current.joinRoomId || current.joinToken
+        ? {
+            ...current,
+            open: false,
+            role: null,
+            status: 'idle',
+            roomId: '',
+            token: '',
+            inviteUrl: '',
+            joinRoomId: '',
+            joinToken: '',
+            error: '',
+            note: ''
+          }
+        : current
+    ));
+    updateOnlineUi((current) => (
+      current.open || current.status !== 'idle' || current.error || current.note || current.bucketLabel || current.rotationLabel || current.pendingMatch
+        ? {
+            ...current,
+            open: false,
+            status: 'idle',
+            error: '',
+            note: '',
+            bucketLabel: '',
+            rotationLabel: '',
+            pendingMatch: null
+          }
+        : current
+    ));
+  }, []);
   useEffect(() => {
     peerClockRef.current = peerClock;
   }, [peerClock]);
@@ -5599,6 +5662,7 @@ export default function App() {
   };
 
   const handleOpenOnlineDialog = () => {
+    if (!ONLINE_MULTIPLAYER_ENABLED) return;
     setShowOnlineModeDialog(false);
     updatePeerUi((current) => ({ ...current, open: false, error: '', note: current.note }));
     updateOnlineUi((current) => ({
@@ -5609,6 +5673,7 @@ export default function App() {
   };
 
   const handleCloseOnlineDialog = () => {
+    if (!ONLINE_MULTIPLAYER_ENABLED) return;
     setShowOnlineModeDialog(false);
     updateOnlineUi((current) => ({
       ...current,
@@ -5617,6 +5682,7 @@ export default function App() {
   };
 
   const handleOpenOnlineModeDialog = () => {
+    if (!ONLINE_MULTIPLAYER_ENABLED) return;
     updatePeerUi((current) => ({ ...current, open: false, error: '', note: current.note }));
     updateOnlineUi((current) => ({ ...current, open: false, error: '', note: current.note }));
     setShowOnlineModeDialog(true);
@@ -5660,6 +5726,7 @@ export default function App() {
   });
 
   const openPrivateFriendInvite = (autoShare = true) => {
+    if (!ONLINE_MULTIPLAYER_ENABLED) return;
     startHostInvite({
       autoShare,
       ...getLocalPeerIdentity()
@@ -5667,12 +5734,14 @@ export default function App() {
   };
 
   const connectPrivateFriendInvite = () => {
+    if (!ONLINE_MULTIPLAYER_ENABLED) return;
     startGuestConnection({
       ...getLocalPeerIdentity()
     });
   };
 
   const handleOpenFriendDialog = () => {
+    if (!ONLINE_MULTIPLAYER_ENABLED) return;
     setShowOnlineModeDialog(false);
     updateOnlineUi((current) => ({ ...current, open: false }));
     updatePeerUi({
@@ -5685,6 +5754,7 @@ export default function App() {
   };
 
   const handleCancelOnlineMatchmaking = () => {
+    if (!ONLINE_MULTIPLAYER_ENABLED) return;
     if (onlineUi.status === 'launching' && peerUi.role && !state.started) {
       disconnectPeerSession({
         notifyRemote: peerUi.role === 'host',
