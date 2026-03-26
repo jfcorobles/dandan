@@ -447,8 +447,8 @@ const WhatIsThisOverlay = ({ onClose }) => {
       : `Ready with ${voiceName}`;
 
   return (
-    <div className="absolute inset-0 z-30 flex items-start justify-center overflow-y-auto bg-[rgba(2,6,23,0.84)] p-4 backdrop-blur-sm sm:p-6">
-      <div className="my-auto w-full max-w-2xl rounded-[1.9rem] border border-white/10 bg-slate-950/96 p-5 text-left shadow-[0_30px_80px_rgba(2,6,23,0.72)] sm:p-6">
+    <div className="absolute inset-0 z-30 flex items-start justify-center overflow-y-auto bg-[rgba(2,6,23,0.84)] p-3 backdrop-blur-sm sm:p-6">
+      <div className="my-auto w-full max-w-xl rounded-[1.6rem] border border-white/10 bg-slate-950/96 p-4 text-left shadow-[0_30px_80px_rgba(2,6,23,0.72)] sm:p-5">
         <div className="mb-5 flex items-start justify-between gap-4">
           <div>
             <h2 className="font-arena-display text-2xl tracking-[0.08em] text-white sm:text-[2rem]">{WHAT_IS_THIS_CONTENT.title}</h2>
@@ -459,15 +459,24 @@ const WhatIsThisOverlay = ({ onClose }) => {
           </button>
         </div>
 
-        <div className="mb-5 rounded-[1.35rem] border border-cyan-200/14 bg-cyan-400/[0.06] p-4">
+        <div className="mb-4 rounded-[1.15rem] border border-cyan-200/14 bg-cyan-400/[0.06] p-3">
+          <div className="text-[10px] font-black uppercase tracking-[0.22em] text-cyan-100/82">
+            One Deck. One Graveyard. One Fish.
+          </div>
+          <p className="mt-2 text-sm leading-5 text-slate-200">
+            Forgetful Fish is Dandan tuned as an MTG AI lab. The whole point is learning how to fight over the same deck, the same graveyard, and the same future draws.
+          </p>
+        </div>
+
+        <div className="mb-4 rounded-[1.15rem] border border-cyan-200/14 bg-cyan-400/[0.06] p-3">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <div className="font-arena-display text-[1.05rem] tracking-[0.05em] text-cyan-100">Voice</div>
-              <div className="mt-2 text-xs uppercase tracking-[0.18em] text-cyan-50/72">{voiceLabel}</div>
+              <div className="font-arena-display text-[1rem] tracking-[0.05em] text-cyan-100">Voice Intro</div>
+              <div className="mt-2 text-[11px] uppercase tracking-[0.18em] text-cyan-50/72">{voiceLabel}</div>
             </div>
             <button
               onClick={voiceState === 'speaking' ? stopNarration : playNarration}
-              className="inline-flex min-h-[46px] items-center justify-center gap-2 rounded-2xl border border-sky-200/70 bg-[#38bdf8] px-4 py-2.5 font-bold uppercase tracking-[0.04em] text-slate-950 shadow-[0_14px_28px_rgba(56,189,248,0.22)] transition-colors hover:bg-[#22c7ff]"
+              className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-2xl border border-sky-200/70 bg-[#38bdf8] px-4 py-2.5 text-[11px] font-bold uppercase tracking-[0.08em] text-slate-950 shadow-[0_14px_28px_rgba(56,189,248,0.22)] transition-colors hover:bg-[#22c7ff]"
             >
               {voiceState === 'speaking' ? <VolumeX size={16} /> : <Volume2 size={16} />}
               {voiceState === 'speaking' ? 'Stop Voice' : 'Play Voice'}
@@ -475,70 +484,68 @@ const WhatIsThisOverlay = ({ onClose }) => {
           </div>
         </div>
 
-        <div className="mb-5 rounded-[1.35rem] border border-white/10 bg-white/[0.04] p-4">
-          <div className="font-arena-display text-[1.05rem] tracking-[0.05em] text-cyan-100">The Format At A Glance</div>
-          <div className="mt-3 grid gap-2 sm:grid-cols-3">
+        <div className="mb-4 rounded-[1.15rem] border border-white/10 bg-white/[0.04] p-3">
+          <div className="font-arena-display text-[1rem] tracking-[0.05em] text-cyan-100">The Format At A Glance</div>
+          <div className="mt-3 grid gap-2">
             <div className="rounded-[1rem] border border-slate-800 bg-slate-900/70 p-3">
               <div className="flex items-center gap-2 text-cyan-100">
                 <Layers size={15} />
                 <span className="text-[11px] font-black uppercase tracking-[0.18em]">Shared Library</span>
               </div>
-              <p className="mt-2 text-sm leading-5 text-slate-300">Both players draw from the same deck, so the top card is a shared resource.</p>
+              <p className="mt-2 text-sm leading-5 text-slate-300">Both players draw from the same deck, so every topdeck fight matters to both sides.</p>
             </div>
             <div className="rounded-[1rem] border border-slate-800 bg-slate-900/70 p-3">
               <div className="flex items-center gap-2 text-cyan-100">
                 <Skull size={15} />
                 <span className="text-[11px] font-black uppercase tracking-[0.18em]">Shared Graveyard</span>
               </div>
-              <p className="mt-2 text-sm leading-5 text-slate-300">Cards in the graveyard matter to everyone, especially draw spells and recursion.</p>
+              <p className="mt-2 text-sm leading-5 text-slate-300">Cards in the graveyard matter to everyone, especially cards like Accumulated Knowledge.</p>
             </div>
             <div className="rounded-[1rem] border border-slate-800 bg-slate-900/70 p-3">
               <div className="flex items-center gap-2 text-cyan-100">
                 <ArrowLeftRight size={15} />
                 <span className="text-[11px] font-black uppercase tracking-[0.18em]">One Small Card Pool</span>
               </div>
-              <p className="mt-2 text-sm leading-5 text-slate-300">That small pool is why this is a good MTG AI lab: fewer cards, sharper decisions.</p>
+              <p className="mt-2 text-sm leading-5 text-slate-300">That makes it a great MTG AI test bed: fewer cards, cleaner decisions, deeper reads.</p>
             </div>
           </div>
         </div>
 
-        <div className="mb-5 rounded-[1.35rem] border border-white/10 bg-white/[0.04] p-4">
-          <div className="font-arena-display text-[1.05rem] tracking-[0.05em] text-cyan-100">The Format In Cards</div>
-          <p className="mt-2 text-sm leading-6 text-slate-300">
-            These are the cards that explain the soul of Dandan: one fish, one shared library, and a lot of fights over what both players will draw next.
+        <div className="mb-4 rounded-[1.15rem] border border-white/10 bg-white/[0.04] p-3">
+          <div className="font-arena-display text-[1rem] tracking-[0.05em] text-cyan-100">The Format In Cards</div>
+          <p className="mt-2 text-sm leading-5 text-slate-300">
+            Swipe through the key cards. They explain why Dandan is really about shared information and who controls the next draw.
           </p>
-          <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          <div className="-mx-1 mt-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-1 pb-2 sm:grid sm:grid-cols-2 sm:overflow-visible sm:px-0 sm:pb-0">
             {WHAT_IS_THIS_CARD_SPOTLIGHTS.map((spotlight) => (
-              <div key={spotlight.key} className="rounded-[1.2rem] border border-slate-800 bg-slate-900/72 p-3">
-                <div className="flex items-start gap-3">
-                  <Card
-                    card={spotlight.card}
-                    zone="dialog"
-                    official={false}
-                    onZoom={null}
-                    disableHoverLift
-                  />
-                  <div className="min-w-0">
-                    <div className="font-arena-display text-[1rem] tracking-[0.05em] text-white">{spotlight.title}</div>
-                    <div className="mt-1 text-[10px] font-black uppercase tracking-[0.18em] text-cyan-100/78">{spotlight.card.name}</div>
-                    <p className="mt-2 text-sm leading-5 text-slate-300">{spotlight.body}</p>
-                  </div>
+              <div key={spotlight.key} className="min-w-[78%] snap-center rounded-[1.15rem] border border-slate-800 bg-slate-900/72 overflow-hidden sm:min-w-0">
+                <img
+                  src={spotlight.card.image}
+                  alt={spotlight.card.name}
+                  loading="eager"
+                  decoding="sync"
+                  className="h-36 w-full object-cover"
+                />
+                <div className="p-3">
+                  <div className="font-arena-display text-[1rem] tracking-[0.05em] text-white">{spotlight.title}</div>
+                  <div className="mt-1 text-[10px] font-black uppercase tracking-[0.18em] text-cyan-100/78">{spotlight.card.name}</div>
+                  <p className="mt-2 text-sm leading-5 text-slate-300">{spotlight.body}</p>
                 </div>
               </div>
             ))}
           </div>
         </div>
 
-        <div className="space-y-4">
+        <div className="space-y-3">
           {WHAT_IS_THIS_CONTENT.sections.map((section) => (
-            <div key={section.heading} className="rounded-[1.35rem] border border-slate-800 bg-slate-900/72 p-4">
-              <div className="font-arena-display text-[1.05rem] tracking-[0.05em] text-cyan-100">{section.heading}</div>
-              <p className="mt-2 text-sm leading-6 text-slate-300">{section.body}</p>
+            <div key={section.heading} className="rounded-[1.05rem] border border-slate-800 bg-slate-900/72 p-3">
+              <div className="font-arena-display text-[0.98rem] tracking-[0.05em] text-cyan-100">{section.heading}</div>
+              <p className="mt-2 text-sm leading-5 text-slate-300">{section.body}</p>
             </div>
           ))}
         </div>
 
-        <button onClick={handleClose} className="mt-5 w-full rounded-2xl border border-slate-600 bg-slate-900 py-3.5 font-bold uppercase tracking-[0.04em] text-slate-100 shadow-[0_14px_28px_rgba(15,23,42,0.32)] transition-colors hover:bg-slate-800">
+        <button onClick={handleClose} className="mt-4 w-full rounded-2xl border border-slate-600 bg-slate-900 py-3 font-bold uppercase tracking-[0.08em] text-slate-100 shadow-[0_14px_28px_rgba(15,23,42,0.32)] transition-colors hover:bg-slate-800">
           Close
         </button>
       </div>
@@ -1153,15 +1160,15 @@ const WHAT_IS_THIS_CONTENT = {
   sections: [
     {
       heading: 'The Story',
-      body: 'Forgetful Fish is my playable version of Dandan, the weird little Magic format where both players share one library and one graveyard. That turns every game into a fight over memory, prediction, timing, and who really understands the top of the deck.'
+      body: 'Forgetful Fish is my playable Dandan build: one shared library, one shared graveyard, and a lot of tension over the top card.'
     },
     {
       heading: 'Why I Built It',
-      body: 'I built this as an experiment to create an AI that can play Magic: The Gathering. I wanted a format small enough to study deeply, but rich enough to force real decisions instead of simple scripted play.'
+      body: 'I built it as an experiment to teach an AI to play Magic: The Gathering in a format with real timing, bluffing, and memory.'
     },
     {
       heading: 'Why Dandan',
-      body: 'Dandan is perfect for that experiment. It makes the AI think about stack fights, bluffing, card knowledge, shared resources, and how to shape the opponent’s next draw. The card pool is compact, but the decision space is still very alive.'
+      body: 'Dandan is perfect for that experiment because the card pool is small, but the decisions are still sharp and deep.'
     }
   ],
   narration: "Welcome to Forgetful Fish. This is my version of Dandan, the strange Magic format where both players share the same library and the same graveyard. I built it as an experiment to create an AI that can play Magic: The Gathering in a format full of memory, prediction, bluffing, and stack battles. Dandan is the perfect test bed because the cards are few, but the decisions are sharp. Every Brainstorm, Memory Lapse, Predict, and fish attack teaches the AI something about timing, pressure, and hidden information."
@@ -2399,7 +2406,7 @@ const HomeActionButton = ({ label, onClick, className = '', labelClassName = '' 
   </button>
 );
 
-const HomeMenuPanel = ({ variantId, onAdventure, onQuickGame, onOnline, onContinue, canContinue, onSettings }) => {
+const HomeMenuPanel = ({ variantId, onAdventure, onQuickGame, onOnline, onContinue, canContinue, onWhatIsThis, onSettings }) => {
   if (variantId === 'duel') {
     return (
       <div className="w-full max-w-4xl mx-auto grid gap-3">
@@ -2436,13 +2443,21 @@ const HomeMenuPanel = ({ variantId, onAdventure, onQuickGame, onOnline, onContin
               />
             )}
           </div>
-          <HomeActionButton
-            label="Settings"
-            onClick={onSettings}
-            className="min-h-[118px] rounded-[1.8rem] border border-slate-200/40 bg-white/72 px-5 py-5 text-left shadow-[0_20px_44px_rgba(15,23,42,0.18)] backdrop-blur-[2px]"
-            labelClassName="text-2xl sm:text-3xl font-semibold tracking-[-0.03em] text-slate-950"
-            indicatorClassName="border-amber-300/50 bg-amber-50/80 text-amber-700"
-          />
+          <div className="grid gap-3">
+            <HomeActionButton
+              label="What Is This?"
+              onClick={onWhatIsThis}
+              className="min-h-[96px] rounded-[1.8rem] border border-slate-200/40 bg-white/72 px-5 py-5 text-left shadow-[0_20px_44px_rgba(15,23,42,0.18)] backdrop-blur-[2px]"
+              labelClassName="text-2xl sm:text-3xl font-semibold tracking-[-0.03em] text-slate-950"
+            />
+            <HomeActionButton
+              label="Settings"
+              onClick={onSettings}
+              className="min-h-[96px] rounded-[1.8rem] border border-slate-200/40 bg-white/72 px-5 py-5 text-left shadow-[0_20px_44px_rgba(15,23,42,0.18)] backdrop-blur-[2px]"
+              labelClassName="text-2xl sm:text-3xl font-semibold tracking-[-0.03em] text-slate-950"
+              indicatorClassName="border-amber-300/50 bg-amber-50/80 text-amber-700"
+            />
+          </div>
         </div>
       </div>
     );
@@ -2481,6 +2496,12 @@ const HomeMenuPanel = ({ variantId, onAdventure, onQuickGame, onOnline, onContin
             labelClassName="text-2xl sm:text-[2rem] font-semibold tracking-[-0.03em] text-slate-950"
           />
         )}
+        <HomeActionButton
+          label="What Is This?"
+          onClick={onWhatIsThis}
+          className="rounded-[1.55rem] border border-slate-300/70 bg-slate-50/88 px-5 py-5 text-left shadow-[0_18px_38px_rgba(15,23,42,0.2)] backdrop-blur-[2px]"
+          labelClassName="text-2xl sm:text-[2rem] font-semibold tracking-[-0.03em] text-slate-950"
+        />
         <HomeActionButton
           label="Settings"
           onClick={onSettings}
@@ -2530,6 +2551,12 @@ const HomeMenuPanel = ({ variantId, onAdventure, onQuickGame, onOnline, onContin
             />
           )}
           <HomeActionButton
+            label="What Is This?"
+            onClick={onWhatIsThis}
+            className="rounded-[1.9rem] border border-white/45 bg-white/74 px-6 py-5 text-left shadow-[0_18px_36px_rgba(15,23,42,0.18)] backdrop-blur-[2px] sm:ml-14"
+            labelClassName="text-2xl sm:text-[2.2rem] font-semibold tracking-[-0.03em] text-slate-950"
+          />
+          <HomeActionButton
             label="Settings"
             onClick={onSettings}
             className="rounded-[1.9rem] border border-white/45 bg-white/74 px-6 py-5 text-left shadow-[0_18px_36px_rgba(15,23,42,0.18)] backdrop-blur-[2px] sm:ml-16"
@@ -2575,6 +2602,12 @@ const HomeMenuPanel = ({ variantId, onAdventure, onQuickGame, onOnline, onContin
           />
         )}
         <HomeActionButton
+          label="What Is This?"
+          onClick={onWhatIsThis}
+          className="rounded-[2rem] border border-white/42 bg-white/74 px-6 py-6 text-left shadow-[0_20px_44px_rgba(15,23,42,0.18)] backdrop-blur-[2px]"
+          labelClassName="text-3xl sm:text-[3rem] font-semibold tracking-[-0.04em] text-slate-950"
+        />
+        <HomeActionButton
           label="Settings"
           onClick={onSettings}
           className="rounded-[2rem] border border-white/42 bg-white/74 px-6 py-6 text-left shadow-[0_20px_44px_rgba(15,23,42,0.18)] backdrop-blur-[2px]"
@@ -2615,6 +2648,12 @@ const HomeMenuPanel = ({ variantId, onAdventure, onQuickGame, onOnline, onContin
           labelClassName="text-[1.2rem] sm:text-[1.32rem] tracking-[0.02em] text-white"
         />
       )}
+      <HomeActionButton
+        label="What Is This?"
+        onClick={onWhatIsThis}
+        className="w-full max-w-[15.75rem] min-h-[56px] rounded-full bg-slate-800/44 p-0 shadow-[0_18px_36px_rgba(15,23,42,0.24)] hover:bg-slate-800/54"
+        labelClassName="text-[1.2rem] sm:text-[1.32rem] tracking-[0.02em] text-white"
+      />
       <HomeActionButton
         label="Settings"
         onClick={onSettings}
@@ -3664,17 +3703,9 @@ const LandingScreen = ({
                     onOnline={onOpenOnlineModeDialog}
                     onContinue={onContinueGame}
                     canContinue={canContinueGame}
+                    onWhatIsThis={onOpenWhatIsThis}
                     onSettings={onOpenSettings}
                   />
-                  <div className="mt-4 flex justify-center">
-                    <button
-                      onClick={onOpenWhatIsThis}
-                      className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-full border border-white/14 bg-slate-950/55 px-4 py-2.5 text-slate-100 shadow-[0_18px_36px_rgba(15,23,42,0.28)] backdrop-blur-md transition-all hover:bg-slate-900/72"
-                    >
-                      <Volume2 size={15} className="text-cyan-200" />
-                      <span className="font-arena-display text-[1rem] tracking-[0.04em]">What Is This?</span>
-                    </button>
-                  </div>
                 </div>
               </div>
             </div>
