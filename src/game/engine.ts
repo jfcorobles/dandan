@@ -1091,20 +1091,25 @@ export const isCastable = (card, state, player = 'player') => {
   return true;
 };
 
-export const isValidTarget = (card, zone, state) => {
-  if (!state.pendingTargetSelection) return false;
-  const spellName = state.pendingTargetSelection.spellName;
-  
+const isValidTargetForSpell = (spellName, caster, card, zone, state) => {
+  if (!spellName || !card) return false;
   if (spellName === 'Memory Lapse') return zone === 'stack' && isSpellStackEntry(card);
   if (spellName === 'Unsubstantiate') return (zone === 'stack' && isSpellStackEntry(card)) || (zone === 'board' && isCreatureCard(card));
   if (spellName === 'Magical Hack') return zone === 'board';
   if (spellName === 'Crystal Spray') return zone === 'board' || (zone === 'stack' && isSpellStackEntry(card));
-  if (spellName === 'Metamorphose') {
-    const caster = state.pendingTargetSelection?.player || 'player';
-    return zone === 'board' && getBattlefieldController(state, card.id) === getOpponent(caster);
-  }
+  if (spellName === 'Metamorphose') return zone === 'board' && getBattlefieldController(state, card.id) === getOpponent(caster);
   if (spellName === 'Control Magic') return zone === 'board' && isCreatureCard(card);
   return false;
+};
+export const isValidTarget = (card, zone, state) => {
+  if (!state.pendingTargetSelection) return false;
+  return isValidTargetForSpell(
+    state.pendingTargetSelection.spellName,
+    state.pendingTargetSelection?.player || 'player',
+    card,
+    zone,
+    state
+  );
 };
 
 // SMART AUTO-PASS SYSTEM
@@ -3713,6 +3718,7 @@ export const createGameReducer = (effects = defaultEffects) => {
         target = s[opp].board.find(c => c.name === 'DandÃ¢n') || s[opp].board.find(c => c.name === 'Control Magic') || s[opp].board.find(c => c.isLand);
       }
       if (targetDependent.includes(card.name) && !target) return s;
+      if (targetDependent.includes(card.name) && !isValidTargetForSpell(card.name, p, target, target.card ? 'stack' : 'board', s)) return s;
       if (isHumanControlledPlayer && isLandTypeChoiceSpell(card.name) && !isLandTypeChoice(action.landTypeChoice)) {
         s.pendingAction = {
           type: 'LAND_TYPE_CHOICE',
@@ -3753,6 +3759,7 @@ export const createGameReducer = (effects = defaultEffects) => {
       if (action.targetZone === 'stack') targetObj = s.stack.find(c => c.card.id === action.targetId);
       if (action.targetZone === 'board') targetObj = s.player.board.find(c => c.id === action.targetId) || s.ai.board.find(c => c.id === action.targetId);
       if (!targetObj) return { ...s, pendingTargetSelection: null };
+      if (!isValidTargetForSpell(card.name, p, targetObj, action.targetZone === 'stack' ? 'stack' : 'board', s)) return s;
       if (isLandTypeChoiceSpell(card.name)) {
         s.pendingTargetSelection = null;
         s.pendingAction = {

@@ -1597,6 +1597,36 @@ test('Metamorphose lets the permanent owner put Dandan onto the battlefield from
   expect(state.player.hand.every((card) => card.id !== playerDandan.id), 'Metamorphose deployment should remove the chosen card from hand');
 });
 
+test('Metamorphose cannot target your own permanent even if a direct target is passed', () => {
+  const playerLand = makeCard(CARDS.ISLAND_1, { id: 'meta-self-land', owner: 'player' });
+  const supportIsland = makeCard(CARDS.ISLAND_2, { id: 'meta-self-support', owner: 'player' });
+  const metamorphose = makeCard(CARDS.METAMORPHOSE, { id: 'meta-self-spell', owner: 'player' });
+
+  let state = makeState({
+    turn: 'player',
+    phase: 'main1',
+    priority: 'player',
+    player: {
+      life: 20,
+      hand: [metamorphose],
+      board: [playerLand, supportIsland],
+      landsPlayed: 0
+    },
+    ai: {
+      life: 20,
+      hand: [],
+      board: [],
+      landsPlayed: 0
+    }
+  });
+
+  state = reducer(state, { type: 'CAST_SPELL', player: 'player', cardId: metamorphose.id, target: playerLand });
+
+  expect(state.stack.length === 0, 'Illegal self-targeted Metamorphose should not be put on the stack');
+  expect(state.player.hand.some((card) => card.id === metamorphose.id), 'Illegal self-targeted Metamorphose should stay in hand');
+  expect(state.player.board.some((card) => card.id === playerLand.id), 'Illegal self-targeted Metamorphose should leave the target permanent in play');
+});
+
 test('Metamorphose can put Control Magic onto the battlefield from hand', () => {
   const playerLand = makeCard(CARDS.ISLAND_1, { id: 'meta-cm-land', owner: 'player' });
   const supportIsland = makeCard(CARDS.ISLAND_2, { id: 'meta-cm-support', owner: 'player' });
