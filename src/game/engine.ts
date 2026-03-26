@@ -139,7 +139,7 @@ const CHARACTER_CARD_BONUSES = {
   }
 };
 export const AI_DIFFICULTIES = ['easy', 'medium', 'hard'];
-export const AI_DIFFICULTY_LABELS = { easy: 'Easy', medium: 'Medium', hard: 'Hard' };
+export const AI_DIFFICULTY_LABELS = { easy: 'Deathfish', medium: 'Redfish', hard: 'Shark' };
 export const AI_SPEED = { easy: { think: 900, pass: 250, resolve: 700 }, medium: { think: 450, pass: 120, resolve: 250 }, hard: { think: 140, pass: 40, resolve: 70 } };
 const DEFAULT_POLICY_WEIGHTS = {
   easy: { aggression: 1.02, control: 0.68, drawBias: 0.66, mistakeRate: 0.12, landLimit: 4.2, counterBias: 0.9, stealBias: 0.96, attackBias: 1.02, blockBias: 0.96 },
@@ -409,10 +409,8 @@ const getHardModePolicy = (policy = trainedPolicy.weights) => normalizePolicy({
 });
 export const getLivePolicyWeights = (difficulty, characterId = null, basePolicy = null) => {
   const resolvedDifficulty = difficulty || 'medium';
-  const fallbackPolicy = basePolicy || (resolvedDifficulty === 'hard' ? trainedPolicy.weights : DEFAULT_POLICY_WEIGHTS[resolvedDifficulty]);
-  const normalizedBase = resolvedDifficulty === 'hard'
-    ? getHardModePolicy(fallbackPolicy)
-    : normalizePolicy(fallbackPolicy);
+  const fallbackPolicy = basePolicy || trainedPolicy.weights || DEFAULT_POLICY_WEIGHTS[resolvedDifficulty] || DEFAULT_POLICY_WEIGHTS.medium;
+  const normalizedBase = getHardModePolicy(fallbackPolicy);
   return applyCharacterStyle(normalizedBase, characterId);
 };
 const getActorCharacterId = (state, actor = 'ai') => actor === 'player' ? state?.playerAiCharacterId : state?.aiCharacterId;
@@ -1327,6 +1325,38 @@ const getProjectedEmptyLibraryLoser = (state, extraCards = 0) => {
   const drawOrder = getUpcomingNaturalDrawPlayers(state, deckSize + 1);
   return drawOrder[deckSize] || null;
 };
+const TOPDECK_CAPTURE_CARD_NAMES = ['Accumulated Knowledge', 'Brainstorm', 'Mental Note', 'Predict', 'Telling Time'];
+const getTopdeckCapturePressure = (state, viewer, actor) => {
+  const bayPressure = state[actor].board.some(card => card.name === 'The Surgical Bay' && isActivatable(card, state, actor)) ? 1.2 : 0;
+  return getAccessiblePlayableCardPressure(state, viewer, actor, TOPDECK_CAPTURE_CARD_NAMES) + bayPressure;
+};
+const getTopdeckCaptureWindowScore = (state, actor) => {
+  if (state.deck.length === 0) return 0;
+
+  const opponent = getOpponent(actor);
+  const drawOrder = getUpcomingNaturalDrawPlayers(state, 2);
+  const topCard = getAccessibleTopCardValue(state, actor, 0);
+  const secondCard = getAccessibleTopCardValue(state, actor, 1);
+  const topValue = topCard.value * (topCard.known ? 1.05 : 0.78);
+  const secondValue = secondCard.value * (secondCard.known ? 0.72 : 0.5);
+  const actorAccess = getTopdeckCapturePressure(state, actor, actor);
+  const opponentAccess = getTopdeckCapturePressure(state, actor, opponent);
+
+  let score = (actorAccess - opponentAccess) * 1.35;
+  if (drawOrder[0] === actor) score += topValue;
+  if (drawOrder[0] === opponent) score -= topValue;
+  if (drawOrder[1] === actor) score += secondValue;
+  if (drawOrder[1] === opponent) score -= secondValue;
+  return score;
+};
+const getDeckingRaceScore = (state, actor) => {
+  if (state.deck.length > 8) return 0;
+  const projectedLoser = getProjectedEmptyLibraryLoser(state);
+  if (!projectedLoser) return 0;
+
+  const pressure = Math.max(1, 9 - state.deck.length);
+  return projectedLoser === actor ? -pressure * 5.5 : pressure * 4.8;
+};
 const getTopdeckDenialScore = (state, actor, count = 1) => {
   const opponent = getOpponent(actor);
   const drawPlayers = getUpcomingNaturalDrawPlayers(state, count);
@@ -1371,6 +1401,9 @@ const getAiCardValue = (state, actor, card, policy) => {
   const topCards = getKnownTopDeckCards(state, actor, 3);
   const lowValueTopCards = topCards.filter(topCard => getBaseCardValue(topCard) <= 4).length;
   const topdeckDenial = getTopdeckDenialScore(state, actor, 2);
+  const topdeckCapture = getTopdeckCaptureWindowScore(state, actor);
+  const deckingRace = getDeckingRaceScore(state, actor);
+  const readyAttackers = countReadyAttackDandansAgainst(state[actor].board, state[opponent].board);
   let score = getBaseCardValue(card) + getCharacterCardBonus(state, actor, card);
 
   if (card.isLand) {
@@ -1395,10 +1428,12 @@ const getAiCardValue = (state, actor, card, policy) => {
       break;
     case 'Memory Lapse':
       score += getAccessiblePlayableCardPressure(state, actor, opponent, [...HIGH_IMPACT_SPELLS]) > 0.35 ? 4 : 1.5;
+      score += topdeckCapture * 0.85;
       break;
     case 'Unsubstantiate':
       score += getAccessiblePlayableCardPressure(state, actor, opponent, [...HIGH_IMPACT_SPELLS]) > 0.35 ? 3.5 : 1.2;
       score += supportedOpponentDandans > 0 ? 2 : 0;
+      score += topdeckCapture * 0.55;
       break;
     case 'Control Magic':
       score += supportedOpponentDandans * 3.2;
@@ -1413,6 +1448,8 @@ const getAiCardValue = (state, actor, card, policy) => {
       score += state[actor].hand.length <= 2 ? 3.5 : 0;
       score -= state[actor].hand.length >= 5 ? 4.5 : 0;
       score -= getAccessibleHandQuality(state, actor, actor) > getAccessibleHandQuality(state, actor, opponent) ? 2.5 : 0;
+      score += deckingRace < 0 ? Math.abs(deckingRace) * 0.45 : 0;
+      score -= deckingRace > 0 ? deckingRace * 0.2 : 0;
       break;
     case 'Accumulated Knowledge':
       score += graveAkCount * 2.2;
@@ -1421,23 +1458,30 @@ const getAiCardValue = (state, actor, card, policy) => {
       score += state.deck.length > 0 ? 4 : -8;
       score += wantsPredictSetup(state, actor) ? 1.2 : 0;
       score += getTopdeckDenialScore(state, actor, 1) * 0.55;
+      score += topdeckCapture * 0.55;
+      score += deckingRace < 0 && state.deck.length <= 6 ? -3.2 : 0;
       break;
     case 'Brainstorm':
       score += state.deck.length >= 2 ? 2.2 : 0;
       score += wantsPredictSetup(state, actor) ? 2.4 : 0;
+      score += topdeckCapture * 0.35;
       break;
     case 'Telling Time':
       score += state.deck.length >= 3 ? 2.5 : state.deck.length;
       score += wantsPredictSetup(state, actor) ? 1.6 : 0;
+      score += topdeckCapture * 0.35;
       break;
     case 'Mental Note':
       score += lowValueTopCards * 1.8;
       score += graveAkCount * 0.8;
       score += topdeckDenial * 0.95;
       if (wantsPredictSetup(state, actor) && getKnownTopDeckCard(state, actor) && getBaseCardValue(getKnownTopDeckCard(state, actor)) >= 6) score -= 2.8;
+      score += topdeckCapture * 0.75;
+      score += deckingRace < 0 && state.deck.length <= 6 ? -4.2 : 0;
       break;
     case 'Chart a Course':
       score += state.hasAttacked[actor] ? 2.4 : -0.8;
+      score += readyAttackers > 0 ? 2 : 0;
       break;
     case 'Magical Hack':
     case 'Crystal Spray':
@@ -1575,6 +1619,9 @@ export const getSpellPriority = (card, policy) => {
 };
 const getSpellContextScore = (state, actor, card, policy, difficulty = state.difficulty || 'medium', viewer = actor) => {
   const opponent = getOpponent(actor);
+  const topdeckCapture = getTopdeckCaptureWindowScore(state, viewer);
+  const deckingRace = getDeckingRaceScore(state, actor);
+  const readyAttackers = countReadyAttackDandansAgainst(state[actor].board, state[opponent].board);
   let score = getSpellPriority(card, policy) + getAiCardValue(state, actor, card, policy) * 0.55;
 
   if (difficulty === 'hard' && !card.isLand && HIGH_IMPACT_SPELLS.has(card.name)) {
@@ -1587,6 +1634,13 @@ const getSpellContextScore = (state, actor, card, policy, difficulty = state.dif
   if (card.name === 'Predict') score += getTopdeckDenialScore(state, actor, 1) * 0.65;
   if (card.name === 'Mental Note') score += getKnownTopDeckCards(state, viewer, 2).filter(topCard => getBaseCardValue(topCard) <= 4).length * 1.2 + getTopdeckDenialScore(state, actor, 2) * 1.1;
   if (card.name === "Day's Undoing" && state[actor].hand.length >= 5 && getAccessibleHandQuality(state, viewer, actor) >= getAccessibleHandQuality(state, viewer, opponent)) score -= 6;
+  if (card.name === 'Memory Lapse') score += topdeckCapture * 0.9;
+  if (card.name === 'Unsubstantiate') score += topdeckCapture * 0.5;
+  if (card.name === 'Chart a Course') score += readyAttackers > 0 ? 2.4 : 0;
+  if (card.name === "Day's Undoing") score += deckingRace < 0 ? Math.abs(deckingRace) * 0.55 : 0;
+  if (card.name === "Day's Undoing" && deckingRace > 0) score -= deckingRace * 0.2;
+  if (card.name === 'Predict' && deckingRace < 0 && state.deck.length <= 6) score -= 3.5;
+  if (card.name === 'Mental Note' && deckingRace < 0 && state.deck.length <= 6) score -= 4.5;
 
   return score;
 };
@@ -2306,7 +2360,7 @@ const shouldHoldValueInstant = (state, actor, card) => {
   if (!card?.isInstant || !AI_VALUE_INSTANTS.has(card.name)) return false;
   if (state.stack.length > 0) return false;
   if (state.turn !== actor) return !(state.phase === 'main2' || state.phase === 'cleanup');
-  return state[actor].hand.length <= 7;
+  return state[actor].hand.length <= 7 || getTopdeckCaptureWindowScore(state, actor) >= 4;
 };
 const shouldCastDandanNow = (state, actor, policy, difficulty = state.difficulty || 'medium') => {
   const dandan = state[actor].hand.find(card => card.name === DANDAN_NAME);
@@ -2334,9 +2388,13 @@ const getAiLandActivationAction = (state, actor, policy, difficulty = state.diff
   if (templeActivation) return templeActivation;
 
   const surgicalBay = state[actor].board.find(card => card.name === 'The Surgical Bay' && isActivatable(card, state, actor));
+  const topdeckCapture = getTopdeckCaptureWindowScore(state, actor);
+  const deckingRace = getDeckingRaceScore(state, actor);
   if (surgicalBay && (
     (state.turn !== actor && (state.phase === 'main2' || state.phase === 'cleanup')) ||
-    (state.turn === actor && state.phase === 'main2' && state[actor].hand.length <= 2)
+    (state.turn === actor && state.phase === 'main2' && state[actor].hand.length <= 2) ||
+    (state.turn !== actor && state.stack.length === 0 && topdeckCapture >= 5.5) ||
+    (state.turn === actor && ['main1', 'main2'].includes(state.phase) && deckingRace <= -8)
   )) {
     return { type: 'ACTIVATE_LAND_NOW', player: actor, cardId: surgicalBay.id, cardName: surgicalBay.name };
   }
@@ -2528,7 +2586,7 @@ const chooseHeuristicAiAction = (
       }
 
       const lapse = state[actor].hand.find(c => c.name === 'Memory Lapse');
-      const lapseValue = stackThreatScore + (state.turn === opponent ? 2.5 : 0);
+      const lapseValue = stackThreatScore + (state.turn === opponent ? 2.5 : 0) + getTopdeckCaptureWindowScore(state, actor) * 0.9;
       const shouldMemoryLapse =
         canCast(lapse) &&
         targetableSpell &&
@@ -2549,6 +2607,7 @@ const chooseHeuristicAiAction = (
       }
 
       const unsub = state[actor].hand.find(c => c.name === 'Unsubstantiate');
+      const unsubValue = stackThreatScore + getTopdeckCaptureWindowScore(state, actor) * 0.55;
       const shouldUnsub =
         canCast(unsub) &&
         targetableSpell &&
@@ -2557,7 +2616,7 @@ const chooseHeuristicAiAction = (
           targetableSpell.card.name === 'Control Magic' ||
           targetableSpell.card.name === 'Capture of Jingzhou' ||
           targetableSpell.card.name === "Day's Undoing" ||
-          stackThreatScore >= 7
+          unsubValue >= 7
         );
 
       if (shouldUnsub) {
@@ -2832,6 +2891,8 @@ const getLibraryLeverageScore = (state, actor) => {
   if (getAccessibleHandCardPressure(state, actor, opponent, ['Predict']) > 0.35) score -= topValue >= 6 ? 4.5 : 2.5;
   if (state[actor].hand.some(card => card.name === 'Brainstorm')) score += state.deck.length >= 2 ? 1.5 : 0;
   if (state[actor].hand.some(card => card.name === 'Telling Time')) score += state.deck.length >= 3 ? 1.8 : 0;
+  score += getTopdeckCaptureWindowScore(state, actor) * 1.15;
+  score += getDeckingRaceScore(state, actor);
   return score;
 };
 const evaluateStateForActor = (state, actor, policy) => {
@@ -3321,22 +3382,15 @@ const chooseTacticalAiAction = (state, actor, policy, difficulty = 'hard') => {
   return bestAction;
 };
 export const chooseAiAction = (state, actor, difficulty = 'medium', policy = getLivePolicyWeights(difficulty)) => {
-  const normalizedPolicy = difficulty === 'hard' ? getHardModePolicy(policy) : normalizePolicy(policy);
+  const effectiveDifficulty = 'hard';
+  const normalizedPolicy = getHardModePolicy(policy);
   if (state.turn === actor && ['main1', 'main2', 'upkeep'].includes(state.phase)) {
-    const survivalAction = chooseImmediateSurvivalAction(state, actor, difficulty, normalizedPolicy);
+    const survivalAction = chooseImmediateSurvivalAction(state, actor, effectiveDifficulty, normalizedPolicy);
     if (survivalAction) return survivalAction;
   }
-  if (difficulty === 'medium' || difficulty === 'hard') {
-    const tacticalAction = chooseTacticalAiAction(state, actor, normalizedPolicy, difficulty);
-    if (tacticalAction) {
-      if (difficulty === 'medium') {
-        const heuristicAction = chooseHeuristicAiAction(state, actor, difficulty, normalizedPolicy);
-        if (shouldPreferMediumHeuristicAction(tacticalAction, heuristicAction)) return heuristicAction;
-      }
-      return tacticalAction;
-    }
-  }
-  return chooseHeuristicAiAction(state, actor, difficulty, normalizedPolicy);
+  const tacticalAction = chooseTacticalAiAction(state, actor, normalizedPolicy, effectiveDifficulty);
+  if (tacticalAction) return tacticalAction;
+  return chooseHeuristicAiAction(state, actor, effectiveDifficulty, normalizedPolicy);
 };
 const resolveLandActivation = (state, player, cardId, cardName, activation = getActivationDetails(cardName)) => {
   const landIdx = state[player].board.findIndex(card => card.id === cardId);

@@ -572,6 +572,11 @@ const DIFFICULTY_ART = {
   medium: `${ASSET_BASE_URL}difficulty/redfish.png`,
   hard: `${ASSET_BASE_URL}difficulty/shark.png`
 };
+const DIFFICULTY_FLAVOR_LABELS = {
+  easy: 'Deathfish',
+  medium: 'Redfish',
+  hard: 'Shark'
+};
 const CHARACTER_ART = {
   tortoise: tortoisePortrait,
   shark: sharkPortrait,
@@ -2736,7 +2741,7 @@ const QuickGameDialog = ({ selectedDifficulty, onClose, onStart }) => (
                 {AI_DIFFICULTY_LABELS[difficulty]}
               </div>
               <div className={`text-[11px] font-bold uppercase tracking-[0.16em] ${isSelected ? 'text-slate-300' : 'text-slate-400'}`}>
-                {difficulty === 'easy' ? 'Deathfish' : difficulty === 'medium' ? 'Redfish' : 'Shark'}
+                {DIFFICULTY_FLAVOR_LABELS[difficulty]}
               </div>
             </button>
           );
