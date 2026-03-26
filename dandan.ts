@@ -1056,8 +1056,8 @@ const WHAT_IS_THIS_CONTENT = {
   subtitle: 'A quick intro to Forgetful Fish',
   sections: [
     {
-      heading: 'The Story',
-      body: 'Forgetful Fish is my playable Dandan build: one shared library, one shared graveyard, and every draw step changing both players\' plans.'
+      heading: 'Strategy',
+      body: 'Win by managing shared resources better: protect your Islands, strand opposing Dandans, and fight hard over the next draw before the fish ever connect.'
     },
     {
       heading: 'Why I Built It',
