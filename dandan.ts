@@ -282,11 +282,11 @@ const getGroupedList = (zoneList, sortMode = 'count') => {
 const POLICY_CONTENT = {
   privacy: {
     title: 'Privacy Policy',
-    subtitle: 'How Forgetfull Fish handles data',
+    subtitle: 'How Forgetful Fish handles data',
     sections: [
       {
         heading: 'What This Site Stores',
-        body: 'Forgetfull Fish stores a few gameplay and preference values in your browser so the app can work correctly. This includes your current saved game, your adventure progress, your preferred online nickname, your selected player avatar or uploaded avatar image, and a visual preference for the landing background.'
+        body: 'Forgetful Fish stores a few gameplay and preference values in your browser so the app can work correctly. This includes your current saved game, your adventure progress, your preferred online nickname, your selected player avatar or uploaded avatar image, and a visual preference for the landing background.'
       },
       {
         heading: 'What This Site Does Not Collect',
@@ -308,7 +308,7 @@ const POLICY_CONTENT = {
     sections: [
       {
         heading: 'Cookies',
-        body: 'Forgetfull Fish does not currently set its own tracking cookies for advertising or analytics.'
+        body: 'Forgetful Fish does not currently set its own tracking cookies for advertising or analytics.'
       },
       {
         heading: 'Local Storage',
@@ -3376,9 +3376,9 @@ const LandingScreen = ({
                 }`}>
                 <h1 className="font-arena-display text-4xl sm:text-5xl font-black whitespace-nowrap leading-none">
                   <span className="landing-title-shell">
-                    <span aria-hidden="true" className="landing-title-glow">Forgetfull Fish</span>
-                    <span aria-hidden="true" className="landing-title-core">Forgetfull Fish</span>
-                    <span className="landing-title-fill">Forgetfull Fish</span>
+                    <span aria-hidden="true" className="landing-title-glow">Forgetful Fish</span>
+                    <span aria-hidden="true" className="landing-title-core">Forgetful Fish</span>
+                    <span className="landing-title-fill">Forgetful Fish</span>
                   </span>
                 </h1>
                 <p
