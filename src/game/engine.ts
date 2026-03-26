@@ -142,8 +142,8 @@ export const AI_DIFFICULTIES = ['easy', 'medium', 'hard'];
 export const AI_DIFFICULTY_LABELS = { easy: 'Easy', medium: 'Medium', hard: 'Hard' };
 export const AI_SPEED = { easy: { think: 900, pass: 250, resolve: 700 }, medium: { think: 450, pass: 120, resolve: 250 }, hard: { think: 140, pass: 40, resolve: 70 } };
 const DEFAULT_POLICY_WEIGHTS = {
-  easy: { aggression: 0.92, control: 0.52, drawBias: 0.48, mistakeRate: 0.22, landLimit: 4.0, counterBias: 0.72, stealBias: 0.82, attackBias: 0.92, blockBias: 0.88 },
-  medium: { aggression: 1.08, control: 0.72, drawBias: 0.7, mistakeRate: 0.05, landLimit: 4.25, counterBias: 1.02, stealBias: 1.06, attackBias: 1.03, blockBias: 1.02 }
+  easy: { aggression: 1.02, control: 0.68, drawBias: 0.66, mistakeRate: 0.12, landLimit: 4.2, counterBias: 0.9, stealBias: 0.96, attackBias: 1.02, blockBias: 0.96 },
+  medium: { aggression: 1.14, control: 0.82, drawBias: 0.84, mistakeRate: 0.025, landLimit: 4.35, counterBias: 1.1, stealBias: 1.14, attackBias: 1.08, blockBias: 1.06 }
 };
 export const DEFAULT_AI_CHARACTER_ID = 'shark';
 export const AI_CHARACTERS = [
@@ -1645,6 +1645,13 @@ const countAttackingDandansLosingSupport = (currentBoard, nextBoard) => currentB
 const getMissingLandType = (board, preferredOrder = LAND_TYPE_CHOICES) => (
   preferredOrder.find(landType => !boardHasLandType(board, landType)) || preferredOrder[0] || PRINTED_DANDAN_LAND_TYPE
 );
+const getLeastRepresentedLandType = (board, preferredOrder = LAND_TYPE_CHOICES) => preferredOrder
+  .map((landType, index) => ({
+    landType,
+    index,
+    count: board.filter(card => getLandType(card) === landType).length
+  }))
+  .sort((left, right) => left.count - right.count || left.index - right.index)[0]?.landType || preferredOrder[0] || PRINTED_DANDAN_LAND_TYPE;
 const spellWouldSelfDestruct = (state, spell) => spell?.card?.name === DANDAN_NAME && !boardHasLandType(state[spell.controller].board, getDandanLandType(spell.card));
 const getBattlefieldCard = (state, cardId) => state.player.board.find(card => card.id === cardId) || state.ai.board.find(card => card.id === cardId) || null;
 const getBattlefieldController = (state, cardId) => {
@@ -1914,7 +1921,21 @@ const getTransformTargetChoiceCandidates = (state, actor, target) => {
       score += 0.4;
     }
 
-    return { target, targetController, landTypeChoice, score, opposingDandansLosingSupport };
+    return {
+      target,
+      targetController,
+      landTypeChoice,
+      score,
+      opposingDandansLosingSupport,
+      actorSupportedDelta,
+      opponentSupportedDelta,
+      actorBlueDelta,
+      opponentBlueDelta,
+      actorReadyAttackDelta,
+      opponentReadyAttackDelta,
+      actorAttackingLoss,
+      opponentAttackingLoss
+    };
   }).sort((left, right) => right.score - left.score);
 };
 
@@ -1923,13 +1944,54 @@ const getTransformTargetCandidates = (state, actor) => {
   const targets = [...state[opponent].board, ...state[actor].board]
     .filter(card => card.name === DANDAN_NAME || card.isLand);
   const candidates = targets.flatMap(target => getTransformTargetChoiceCandidates(state, actor, target));
+  const bestDirectOpponentDandanScore = candidates
+    .filter(candidate => candidate.targetController === opponent && candidate.target.name === DANDAN_NAME)
+    .reduce((best, candidate) => Math.max(best, candidate.score), Number.NEGATIVE_INFINITY);
   return candidates.filter(candidate => {
     if (candidate.score <= 2) return false;
     if (!candidate.target.isLand) return true;
-    return candidate.targetController === opponent && candidate.opposingDandansLosingSupport > 1;
+    if (candidate.targetController === actor) {
+      return candidate.actorSupportedDelta > 0
+        || candidate.actorBlueDelta > 0
+        || candidate.actorReadyAttackDelta > 0
+        || candidate.score >= 7;
+    }
+    const isSingleFishLandSwing =
+      candidate.opposingDandansLosingSupport === 1
+      && candidate.opponentBlueDelta >= -1
+      && candidate.opponentReadyAttackDelta >= -1
+      && candidate.opponentAttackingLoss <= 1;
+    if (isSingleFishLandSwing && Number.isFinite(bestDirectOpponentDandanScore)) {
+      return candidate.score > bestDirectOpponentDandanScore + 4;
+    }
+    return candidate.opposingDandansLosingSupport > 0
+      || candidate.opponentReadyAttackDelta < 0
+      || candidate.opponentBlueDelta < 0
+      || candidate.opponentAttackingLoss > 0
+      || candidate.score >= 9.5;
   }).sort((left, right) => right.score - left.score);
 };
 const pickTransformTarget = (state, actor) => getTransformTargetCandidates(state, actor)[0] || null;
+const getStackTransformTargetCandidates = (state, actor) => {
+  const opponent = getOpponent(actor);
+  return state.stack
+    .filter(isSpellStackEntry)
+    .filter(entry => entry.controller === opponent && entry.card?.name === DANDAN_NAME)
+    .map(entry => {
+      const controllerBoard = state[entry.controller].board;
+      const landTypeChoice = getLeastRepresentedLandType(controllerBoard, ['Plains', 'Mountain', 'Forest', 'Swamp', 'Island']);
+      const selfDestructs = !boardHasLandType(controllerBoard, landTypeChoice);
+      const attackDenied = canDandanAttackDefender(getCardWithChosenLandType(entry.card, landTypeChoice), state[actor].board)
+        ? 0
+        : canDandanAttackDefender(entry.card, state[actor].board)
+          ? 3
+          : 0;
+      const score = (selfDestructs ? 22 : 0) + attackDenied;
+      return { target: entry, landTypeChoice, score, selfDestructs };
+    })
+    .filter(candidate => candidate.score > 0)
+    .sort((left, right) => right.score - left.score);
+};
 const chooseLandTypeForTransformTarget = (state, actor, target) => {
   if (!target?.id) return getMissingLandType([], ['Plains', 'Mountain', 'Forest', 'Swamp', 'Island']);
 
@@ -1950,6 +2012,9 @@ const chooseLandTypeForTransformTarget = (state, actor, target) => {
 const getBounceTargetCandidates = (state, actor) => {
   const opponent = getOpponent(actor);
   const board = state[opponent].board;
+  const actorBoard = state[actor].board;
+  const denyAttackWeight = state.turn === opponent && (state.phase === 'main1' || state.phase === 'declare_attackers') ? 4.8 : 0;
+  const forceThroughWeight = state.turn === actor && (state.phase === 'main1' || state.phase === 'declare_attackers') ? 3.6 : 0;
   const candidates = board.filter(card => card.name === DANDAN_NAME || card.isLand || card.name === 'Control Magic').map(card => {
     if (card.name === 'Control Magic') {
       const enchantedCreature = card.enchantedId ? getBattlefieldCard(state, card.enchantedId) : null;
@@ -1971,7 +2036,14 @@ const getBounceTargetCandidates = (state, actor) => {
       !isDandanSupportedOnBoard(permanent, nextBoard)
     )).length;
     const blueLoss = Math.max(0, getBlueSourcesInPlay(board) - getBlueSourcesInPlay(nextBoard));
+    const readyAttackLoss = denyAttackWeight > 0
+      ? countReadyAttackDandansAgainst(board, actorBoard) - countReadyAttackDandansAgainst(nextBoard, actorBoard)
+      : 0;
+    const forcedAttackGain = forceThroughWeight > 0
+      ? countReadyAttackDandansAgainst(actorBoard, nextBoard) - countReadyAttackDandansAgainst(actorBoard, board)
+      : 0;
     let score = killedDandans * 11 + attackingKills * 4 + blueLoss * 2.5;
+    score += readyAttackLoss * denyAttackWeight + forcedAttackGain * forceThroughWeight;
     if (card.name === DANDAN_NAME && isDandanSupported(card, board)) score += card.attacking ? 12 : 9;
     if (card.name === DANDAN_NAME && (card.owner || opponent) === actor) score += 10;
     if (card.controlledByAuraId && (card.owner || opponent) === actor) score += 5;
@@ -2271,6 +2343,56 @@ const getAiLandActivationAction = (state, actor, policy, difficulty = state.diff
 
   return null;
 };
+const getPriorityInstantTempoOptions = (state, actor, policy, difficulty = state.difficulty || 'medium') => {
+  if (state.stack.length > 0 || state.turn === actor || state.phase === 'declare_blockers') return [];
+
+  const canCast = (card) => Boolean(card) && isCastable(card, state, actor);
+  const phaseBonus = (state.phase === 'main1' || state.phase === 'declare_attackers')
+    ? 3.5
+    : (state.phase === 'main2' || state.phase === 'cleanup')
+      ? 1.25
+      : 0;
+  const options = [];
+
+  const unsub = state[actor].hand.find(card => card.name === 'Unsubstantiate');
+  if (canCast(unsub)) {
+    getUnsubstantiateCreatureCandidates(state, actor).slice(0, 2).forEach(candidate => {
+      options.push({
+        action: { type: 'CAST_SPELL', player: actor, cardId: unsub.id, target: candidate.target },
+        score: 2 + phaseBonus + candidate.score + getSpellContextScore(state, actor, unsub, policy, difficulty)
+      });
+    });
+  }
+
+  const metamorphose = state[actor].hand.find(card => card.name === 'Metamorphose');
+  if (canCast(metamorphose)) {
+    getBounceTargetCandidates(state, actor).slice(0, 2).forEach(candidate => {
+      options.push({
+        action: { type: 'CAST_SPELL', player: actor, cardId: metamorphose.id, target: candidate.target },
+        score: phaseBonus + candidate.score + 1.5 + getSpellContextScore(state, actor, metamorphose, policy, difficulty)
+      });
+    });
+  }
+
+  ['Magical Hack', 'Crystal Spray'].forEach(name => {
+    const spell = state[actor].hand.find(card => card.name === name);
+    if (!canCast(spell)) return;
+    getTransformTargetCandidates(state, actor).slice(0, 2).forEach(candidate => {
+      options.push({
+        action: {
+          type: 'CAST_SPELL',
+          player: actor,
+          cardId: spell.id,
+          target: candidate.target,
+          landTypeChoice: candidate.landTypeChoice
+        },
+        score: phaseBonus + candidate.score + (name === 'Crystal Spray' ? 1.5 : 0) + getSpellContextScore(state, actor, spell, policy, difficulty)
+      });
+    });
+  });
+
+  return options.sort((left, right) => right.score - left.score);
+};
 
 export const getAiPendingActions = (state, policy, actor = 'player') => {
   if (!state.pendingAction) return [];
@@ -2362,6 +2484,13 @@ const chooseHeuristicAiAction = (
       ? 3.2
       : 0;
 
+  if (state.turn !== actor && state.stack.length === 0 && state.phase !== 'declare_blockers') {
+    const tempoOption = getPriorityInstantTempoOptions(state, actor, policy, difficulty)[0];
+    if (tempoOption && tempoOption.score >= 12 && !shouldMakeMistake(0.05, policy)) {
+      return tempoOption.action;
+    }
+  }
+
   if (state.turn !== actor && state.stack.length === 0 && (state.phase === 'main2' || state.phase === 'cleanup')) {
     const endStepInstants = state[actor].hand.filter(card => canCast(card) && card.isInstant && AI_VALUE_INSTANTS.has(card.name));
     if (endStepInstants.length > 0 && !shouldMakeMistake(0.04, policy)) {
@@ -2377,6 +2506,20 @@ const chooseHeuristicAiAction = (
       const stackThreatScore = getStackThreatScore(state, actor, topSpell, policy, difficulty);
       if (spellWouldSelfDestruct(state, topSpell)) {
         return { type: 'PASS_PRIORITY', player: actor };
+      }
+
+      const stackTransformOption = state[actor].hand.some(card => card.name === 'Crystal Spray' && canCast(card))
+        ? getStackTransformTargetCandidates(state, actor)[0]
+        : null;
+      if (stackTransformOption && stackTransformOption.score >= 18 && !shouldMakeMistake(0.04, policy)) {
+        const spray = state[actor].hand.find(card => card.name === 'Crystal Spray');
+        return {
+          type: 'CAST_SPELL',
+          player: actor,
+          cardId: spray.id,
+          target: stackTransformOption.target,
+          landTypeChoice: stackTransformOption.landTypeChoice
+        };
       }
 
       const lapse = state[actor].hand.find(c => c.name === 'Memory Lapse');
@@ -2794,6 +2937,22 @@ const getTacticalActionCandidates = (
       });
     }
 
+    const crystalSpray = state[actor].hand.find(card => card.name === 'Crystal Spray' && canCast(card));
+    if (crystalSpray) {
+      getStackTransformTargetCandidates(state, actor).slice(0, 2).forEach((candidate, index) => {
+        addCandidate(
+          {
+            type: 'CAST_SPELL',
+            player: actor,
+            cardId: crystalSpray.id,
+            target: candidate.target,
+            landTypeChoice: candidate.landTypeChoice
+          },
+          26 - index + candidate.score + getSpellContextScore(state, actor, crystalSpray, policy, difficulty)
+        );
+      });
+    }
+
     const unsub = state[actor].hand.find(card => card.name === 'Unsubstantiate' && canCast(card));
     if (unsub) {
       enemyStack.forEach((entry, index) => {
@@ -3158,7 +3317,7 @@ const chooseTacticalAiAction = (state, actor, policy, difficulty = 'hard') => {
 };
 export const chooseAiAction = (state, actor, difficulty = 'medium', policy = getLivePolicyWeights(difficulty)) => {
   const normalizedPolicy = difficulty === 'hard' ? getHardModePolicy(policy) : normalizePolicy(policy);
-  if (difficulty !== 'easy' && state.turn === actor && ['main1', 'main2', 'upkeep'].includes(state.phase)) {
+  if (state.turn === actor && ['main1', 'main2', 'upkeep'].includes(state.phase)) {
     const survivalAction = chooseImmediateSurvivalAction(state, actor, difficulty, normalizedPolicy);
     if (survivalAction) return survivalAction;
   }
