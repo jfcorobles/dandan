@@ -7344,10 +7344,10 @@ export default function App() {
       </div>}
 
       {/* --- STRICT VERTICAL BATTLEFIELD --- */}
-      <div className="flex flex-col flex-1 relative w-full h-full pb-2">
+      <div className="flex min-h-0 flex-col flex-1 relative w-full pb-2">
         
         {/* OPPONENT ZONE */}
-        <div className="flex flex-col h-[30%] shrink-0 justify-end relative z-10 px-2 bg-red-950/10">
+        <div className="flex min-h-0 flex-col h-[30%] shrink-0 justify-end relative z-10 px-2 bg-red-950/10">
            {/* Opponent Avatar Badge */}
            <div className="absolute top-2 left-2 flex items-center gap-3 z-30 bg-slate-900/90 pr-4 pl-1 py-1 rounded-full border border-slate-700 shadow-xl">
               <div className="relative">
@@ -7406,7 +7406,7 @@ export default function App() {
         </div>
 
         {/* TRENCH / MIDDLE ZONE */}
-        <div className="h-[20%] shrink-0 relative px-2 sm:px-4 z-30 bg-black/40 border-y border-blue-900/30 shadow-[0_0_40px_rgba(0,0,0,0.6)] backdrop-blur-sm overflow-visible">
+        <div className="h-[20%] lg:h-[16%] min-h-0 shrink-0 relative px-2 sm:px-4 z-30 bg-black/40 border-y border-blue-900/30 shadow-[0_0_40px_rgba(0,0,0,0.6)] backdrop-blur-sm overflow-visible">
           
           {/* Glowing central divider */}
           <div className="absolute top-1/2 left-0 w-full h-px bg-gradient-to-r from-transparent via-blue-500/50 to-transparent shadow-[0_0_15px_rgba(59,130,246,0.8)] -translate-y-1/2 pointer-events-none" />
@@ -7438,7 +7438,7 @@ export default function App() {
         </div>
 
         {/* PLAYER ZONE */}
-        <div className="flex flex-col h-[50%] shrink-0 pt-1 relative z-20 px-2 bg-blue-950/10">
+        <div className="flex min-h-0 flex-col h-[50%] lg:h-[54%] shrink-0 pt-1 relative z-20 px-2 bg-blue-950/10">
            {/* Player Avatar Badge */}
            <div className="absolute top-2 left-2 flex items-center gap-3 z-30 bg-slate-900/90 pr-4 pl-1 py-1 rounded-full border border-slate-700 shadow-xl">
               <div className="relative">
@@ -7466,7 +7466,7 @@ export default function App() {
               </div>
            </div>
 
-           <div className="h-[30%] flex items-center px-4 mt-6 sm:mt-8">
+           <div className="h-[30%] min-h-0 flex items-center px-4 mt-6 sm:mt-8 lg:mt-4">
               <BoardPermanentRow
                 stacks={getBoardPermanentStacks(state.player.board)}
                 official={useOfficialCards}
@@ -7477,7 +7477,7 @@ export default function App() {
                 selectedStackEntryId={selectedStackEntryId}
               />
            </div>
-           <div className="h-[25%] min-h-[108px] sm:min-h-[132px] flex items-center px-3 sm:px-4 mt-1 overflow-visible">
+           <div className="h-[25%] min-h-[108px] sm:min-h-[124px] lg:min-h-[116px] flex items-center px-3 sm:px-4 mt-1 overflow-visible">
               <div className="w-full overflow-x-auto overflow-y-hidden custom-scrollbar py-3">
                 <div className="flex justify-center min-w-full">
                   <div className="flex items-start gap-2 sm:gap-3 w-max">
@@ -7488,8 +7488,8 @@ export default function App() {
                 </div>
               </div>
            </div>
-            <div className="flex-1 flex items-end justify-center px-2 pb-2 mt-auto z-40 w-full overflow-x-visible">
-               <div className="flex justify-center relative h-[100px] sm:h-[130px] lg:h-[186px] xl:h-[200px] w-full max-w-lg sm:max-w-2xl lg:max-w-5xl xl:max-w-6xl pr-12 lg:pr-20">
+            <div className="flex-1 min-h-0 flex items-end justify-center px-2 pb-1 lg:pb-0 mt-auto z-40 w-full overflow-x-visible">
+               <div className="flex justify-center relative h-[100px] sm:h-[130px] lg:h-[168px] xl:h-[180px] w-full max-w-lg sm:max-w-2xl lg:max-w-5xl xl:max-w-6xl pr-12 lg:pr-16">
                   {state.player.hand.map((c, i) => {
                     return (
                       <div 
