@@ -1547,6 +1547,37 @@ const getAiPutBackCards = (state, actor, count, policy) => {
 const getAiOpeningBottomCards = (state, actor, count, policy) => [...state[actor].hand]
   .sort((left, right) => getAiOpeningBottomScore(state, actor, left, policy) - getAiOpeningBottomScore(state, actor, right, policy) || left.cost - right.cost)
   .slice(0, count);
+const shuffleDeckInPlace = (deck) => {
+  for (let i = deck.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [deck[i], deck[j]] = [deck[j], deck[i]];
+  }
+  return deck;
+};
+const runAutomaticFreeDandanMulligans = (state, actor, logAction = null) => {
+  let freeMulligans = 0;
+  let safety = 0;
+
+  while (qualifiesForDandanFreeMulligan(state[actor].hand) && safety < 12) {
+    state.deck = [...state.deck, ...state[actor].hand];
+    state[actor].hand = [];
+    resetHiddenKnowledge(state);
+    shuffleDeckInPlace(state.deck);
+    drawCards(state, actor, 7);
+    freeMulligans++;
+    safety++;
+  }
+
+  if (freeMulligans > 0) {
+    logAction?.(
+      freeMulligans === 1
+        ? `${getSeatLabel(actor)} took an automatic free Dandan mulligan.`
+        : `${getSeatLabel(actor)} took ${freeMulligans} automatic free Dandan mulligans.`
+    );
+  }
+
+  return freeMulligans;
+};
 const shouldGenericAiMulliganOpeningHand = (hand, mulligansTaken = 0) => {
   if (qualifiesForDandanFreeMulligan(hand)) return true;
   if (mulligansTaken >= 3) return false;
@@ -1571,10 +1602,7 @@ const runAiOpeningMulligans = (state, actor) => {
     state.deck = [...state.deck, ...state[actor].hand];
     state[actor].hand = [];
     resetHiddenKnowledge(state);
-    for (let i = state.deck.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [state.deck[i], state.deck[j]] = [state.deck[j], state.deck[i]];
-    }
+    shuffleDeckInPlace(state.deck);
     drawCards(state, actor, 7);
     if (!isFreeMulligan) mulligansTaken++;
     safety++;
@@ -3548,6 +3576,8 @@ export const createGameReducer = (effects = defaultEffects) => {
       drawAlternating(s, startingPlayer, 7);
       const playerAiMulligans = gameMode === 'ai_vs_ai' ? runAiOpeningMulligans(s, 'player') : 0;
       const aiMulligans = peerGame ? 0 : runAiOpeningMulligans(s, 'ai');
+      gameMode === 'ai_vs_ai' ? 0 : runAutomaticFreeDandanMulligans(s, 'player', logAction);
+      if (peerGame) runAutomaticFreeDandanMulligans(s, 'ai', logAction);
       if (gameMode === 'ai_vs_ai' && playerAiMulligans > 0) logAction(`AI South mulliganed to ${7 - playerAiMulligans}.`);
       if (aiMulligans > 0) logAction(`${gameMode === 'ai_vs_ai' ? 'AI North' : 'Opponent'} mulliganed to ${7 - aiMulligans}.`);
       if (openingRoll) {
@@ -3569,10 +3599,7 @@ export const createGameReducer = (effects = defaultEffects) => {
         s.deck = [...s.deck, ...s[mulliganPlayer].hand];
         s[mulliganPlayer].hand = [];
         resetHiddenKnowledge(s);
-        for (let i = s.deck.length - 1; i > 0; i--) {
-          const j = Math.floor(Math.random() * (i + 1));
-          [s.deck[i], s.deck[j]] = [s.deck[j], s.deck[i]];
-        }
+        shuffleDeckInPlace(s.deck);
         drawCards(s, mulliganPlayer, 7);
         const nextMulliganCount = mulliganCount + (isFreeMulligan ? 0 : 1);
         if (isPeerGame(s)) {
@@ -3590,6 +3617,7 @@ export const createGameReducer = (effects = defaultEffects) => {
               : `You mulliganed to ${7 - s.mulliganCount}. Draw 7 and choose whether to keep.`
           );
         }
+        runAutomaticFreeDandanMulligans(s, mulliganPlayer, logAction);
         s.pendingAction = null;
         return s;
       }

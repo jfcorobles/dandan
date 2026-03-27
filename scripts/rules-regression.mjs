@@ -134,6 +134,15 @@ const tacticalPolicy = {
 const expect = (condition, message) => {
   if (!condition) throw new Error(message);
 };
+const withMockedRandom = (value, fn) => {
+  const originalRandom = Math.random;
+  Math.random = typeof value === 'function' ? value : () => value;
+  try {
+    return fn();
+  } finally {
+    Math.random = originalRandom;
+  }
+};
 
 const tests = [];
 const test = (name, fn) => tests.push({ name, fn });
@@ -194,6 +203,36 @@ test('one-land Dandan hands get a free mulligan', () => {
   expect(state.player.hand.length === 7, `free mulligan should redraw seven cards, got ${state.player.hand.length}`);
 });
 
+test('five-land Dandan hands get a free mulligan', () => {
+  const opener = [
+    makeCard(CARDS.ISLAND_1, { id: 'free-five-land-a' }),
+    makeCard(CARDS.ISLAND_2, { id: 'free-five-land-b' }),
+    makeCard(CARDS.ISLAND_3, { id: 'free-five-land-c' }),
+    makeCard(CARDS.ISLAND_4, { id: 'free-five-land-d' }),
+    makeCard(CARDS.HALIMAR, { id: 'free-five-land-e' }),
+    makeCard(CARDS.BRAINSTORM, { id: 'free-five-spell-a', owner: 'player' }),
+    makeCard(CARDS.PREDICT, { id: 'free-five-spell-b', owner: 'player' })
+  ];
+  const redraw = Array.from({ length: 7 }, (_, index) => makeCard(CARDS.BRAINSTORM, { id: `free-five-redraw-${index}`, owner: 'player' }));
+
+  let state = makeState({
+    phase: 'mulligan',
+    priority: 'player',
+    deck: redraw,
+    player: {
+      life: 20,
+      hand: opener,
+      board: [],
+      landsPlayed: 0
+    }
+  });
+
+  expect(qualifiesForDandanFreeMulligan(state.player.hand) === true, 'five-land opener should qualify for a free mulligan');
+  state = reducer(state, { type: 'MULLIGAN', player: 'player' });
+  expect(state.mulliganCount === 0, `five-land free mulligan should not increase count, got ${state.mulliganCount}`);
+  expect(state.player.hand.length === 7, `five-land free mulligan should redraw seven cards, got ${state.player.hand.length}`);
+});
+
 test('AI roster exposes the full rival cast', () => {
   const rivalIds = AI_CHARACTERS.map((character) => character.id);
   [
@@ -233,9 +272,22 @@ test('start game preserves free and adventure character metadata', () => {
 });
 
 test('opening roll can give the first turn and opening hand to the opponent', () => {
-  const scriptedDeck = Array.from({ length: 14 }, (_, index) =>
-    makeCard(CARDS.ISLAND_1, { id: `opening-roll-${index + 1}` })
-  );
+  const scriptedDeck = [
+    makeCard(CARDS.BRAINSTORM, { id: 'opening-roll-1', owner: 'player' }),
+    makeCard(CARDS.PREDICT, { id: 'opening-roll-2', owner: 'ai' }),
+    makeCard(CARDS.TELLING_TIME, { id: 'opening-roll-3', owner: 'player' }),
+    makeCard(CARDS.MEMORY_LAPSE, { id: 'opening-roll-4', owner: 'ai' }),
+    makeCard(CARDS.UNSUBSTANTIATE, { id: 'opening-roll-5', owner: 'player' }),
+    makeCard(CARDS.BRAINSTORM, { id: 'opening-roll-6', owner: 'ai' }),
+    makeCard(CARDS.PREDICT, { id: 'opening-roll-7', owner: 'player' }),
+    makeCard(CARDS.TELLING_TIME, { id: 'opening-roll-8', owner: 'ai' }),
+    makeCard(CARDS.MEMORY_LAPSE, { id: 'opening-roll-9', owner: 'player' }),
+    makeCard(CARDS.UNSUBSTANTIATE, { id: 'opening-roll-10', owner: 'ai' }),
+    makeCard(CARDS.ISLAND_1, { id: 'opening-roll-11' }),
+    makeCard(CARDS.ISLAND_2, { id: 'opening-roll-12' }),
+    makeCard(CARDS.ISLAND_3, { id: 'opening-roll-13' }),
+    makeCard(CARDS.ISLAND_4, { id: 'opening-roll-14' })
+  ];
 
   let state = reducer(initialState, {
     type: 'START_GAME',
@@ -258,6 +310,87 @@ test('opening roll can give the first turn and opening hand to the opponent', ()
   expect(state.phase === 'upkeep', `expected phase upkeep after keeping, got ${state.phase}`);
   expect(state.turn === 'ai', `expected AI to keep the first turn after mulligans, got ${state.turn}`);
   expect(state.priority === 'ai', `expected priority to pass to the starting player after keeping, got ${state.priority}`);
+});
+
+test('player opening one-land hand is automatically redrawn for free', () => {
+  const scriptedDeck = [
+    makeCard(CARDS.BRAINSTORM, { id: 'auto-player-extra-1', owner: 'player' }),
+    makeCard(CARDS.PREDICT, { id: 'auto-player-extra-2', owner: 'player' }),
+    makeCard(CARDS.TELLING_TIME, { id: 'auto-player-extra-3', owner: 'player' }),
+    makeCard(CARDS.MEMORY_LAPSE, { id: 'auto-player-extra-4', owner: 'player' }),
+    makeCard(CARDS.BRAINSTORM, { id: 'auto-player-extra-spell', owner: 'player' }),
+    makeCard(CARDS.ISLAND_2, { id: 'auto-player-extra-land-b' }),
+    makeCard(CARDS.ISLAND_1, { id: 'auto-player-extra-land-a' }),
+    makeCard(CARDS.PREDICT, { id: 'auto-player-ai-spell-5', owner: 'ai' }),
+    makeCard(CARDS.UNSUBSTANTIATE, { id: 'auto-player-player-spell-5', owner: 'player' }),
+    makeCard(CARDS.TELLING_TIME, { id: 'auto-player-ai-spell-4', owner: 'ai' }),
+    makeCard(CARDS.MEMORY_LAPSE, { id: 'auto-player-player-spell-4', owner: 'player' }),
+    makeCard(CARDS.BRAINSTORM, { id: 'auto-player-ai-spell-3', owner: 'ai' }),
+    makeCard(CARDS.PREDICT, { id: 'auto-player-player-spell-3', owner: 'player' }),
+    makeCard(CARDS.UNSUBSTANTIATE, { id: 'auto-player-ai-spell-2', owner: 'ai' }),
+    makeCard(CARDS.TELLING_TIME, { id: 'auto-player-player-spell-2', owner: 'player' }),
+    makeCard(CARDS.MEMORY_LAPSE, { id: 'auto-player-ai-spell-1', owner: 'ai' }),
+    makeCard(CARDS.BRAINSTORM, { id: 'auto-player-player-spell-1', owner: 'player' }),
+    makeCard(CARDS.ISLAND_4, { id: 'auto-player-ai-land-2' }),
+    makeCard(CARDS.PREDICT, { id: 'auto-player-player-spell-0', owner: 'player' }),
+    makeCard(CARDS.ISLAND_3, { id: 'auto-player-ai-land-1' }),
+    makeCard(CARDS.ISLAND_1, { id: 'auto-player-player-land' })
+  ];
+
+  const state = withMockedRandom(0.5, () => reducer(initialState, {
+    type: 'START_GAME',
+    mode: 'player',
+    difficulty: 'medium',
+    deck: scriptedDeck,
+    startingPlayer: 'player',
+    openingRoll: 12
+  }));
+
+  const playerLandCount = state.player.hand.filter((card) => card.isLand).length;
+  expect(playerLandCount === 3, `automatic free mulligan should redraw the player to a non-qualifying hand, got ${playerLandCount} lands`);
+  expect(state.mulliganCount === 0, `automatic free mulligan should stay free, got mulligan count ${state.mulliganCount}`);
+  expect(state.player.hand.some((card) => card.id === 'auto-player-extra-land-a'), 'player automatic redraw should use cards beyond the original one-land opener');
+  expect(qualifiesForDandanFreeMulligan(state.player.hand) === false, 'player should not still be sitting on an automatic free-mulligan hand');
+});
+
+test('opponent opening five-land hand is automatically redrawn for free', () => {
+  const scriptedDeck = [
+    makeCard(CARDS.BRAINSTORM, { id: 'auto-ai-extra-1', owner: 'player' }),
+    makeCard(CARDS.PREDICT, { id: 'auto-ai-extra-2', owner: 'player' }),
+    makeCard(CARDS.TELLING_TIME, { id: 'auto-ai-extra-3', owner: 'player' }),
+    makeCard(CARDS.MEMORY_LAPSE, { id: 'auto-ai-extra-4', owner: 'player' }),
+    makeCard(CARDS.BRAINSTORM, { id: 'auto-ai-extra-spell', owner: 'ai' }),
+    makeCard(CARDS.PREDICT, { id: 'auto-ai-extra-spell-2', owner: 'ai' }),
+    makeCard(CARDS.UNSUBSTANTIATE, { id: 'auto-ai-extra-spell-3', owner: 'ai' }),
+    makeCard(CARDS.PREDICT, { id: 'auto-ai-ai-spell-2', owner: 'ai' }),
+    makeCard(CARDS.UNSUBSTANTIATE, { id: 'auto-ai-player-spell-5', owner: 'player' }),
+    makeCard(CARDS.TELLING_TIME, { id: 'auto-ai-ai-spell-1', owner: 'ai' }),
+    makeCard(CARDS.MEMORY_LAPSE, { id: 'auto-ai-player-spell-4', owner: 'player' }),
+    makeCard(CARDS.ISLAND_4, { id: 'auto-ai-ai-land-5' }),
+    makeCard(CARDS.BRAINSTORM, { id: 'auto-ai-player-spell-3', owner: 'player' }),
+    makeCard(CARDS.ISLAND_3, { id: 'auto-ai-ai-land-4' }),
+    makeCard(CARDS.PREDICT, { id: 'auto-ai-player-spell-2', owner: 'player' }),
+    makeCard(CARDS.ISLAND_2, { id: 'auto-ai-ai-land-3' }),
+    makeCard(CARDS.TELLING_TIME, { id: 'auto-ai-player-spell-1', owner: 'player' }),
+    makeCard(CARDS.ISLAND_1, { id: 'auto-ai-ai-land-2' }),
+    makeCard(CARDS.ISLAND_2, { id: 'auto-ai-player-land-2' }),
+    makeCard(CARDS.ISLAND_4, { id: 'auto-ai-ai-land-1' }),
+    makeCard(CARDS.ISLAND_1, { id: 'auto-ai-player-land-1' })
+  ];
+
+  const state = withMockedRandom(0.5, () => reducer(initialState, {
+    type: 'START_GAME',
+    mode: 'player',
+    difficulty: 'medium',
+    deck: scriptedDeck,
+    startingPlayer: 'player',
+    openingRoll: 12
+  }));
+
+  const aiLandCount = state.ai.hand.filter((card) => card.isLand).length;
+  expect(aiLandCount === 3, `automatic free mulligan should redraw the opponent to a non-qualifying hand, got ${aiLandCount} lands`);
+  expect(state.ai.hand.some((card) => card.id === 'auto-ai-extra-spell'), 'opponent automatic redraw should use cards beyond the original five-land opener');
+  expect(qualifiesForDandanFreeMulligan(state.ai.hand) === false, 'opponent should not still be sitting on an automatic free-mulligan hand');
 });
 
 test('Tortoise mulligans Island-heavy openers until it finds two blue non-Island lands', () => {
