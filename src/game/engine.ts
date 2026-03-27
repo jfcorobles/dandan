@@ -1547,18 +1547,23 @@ const getAiPutBackCards = (state, actor, count, policy) => {
 const getAiOpeningBottomCards = (state, actor, count, policy) => [...state[actor].hand]
   .sort((left, right) => getAiOpeningBottomScore(state, actor, left, policy) - getAiOpeningBottomScore(state, actor, right, policy) || left.cost - right.cost)
   .slice(0, count);
+const shouldGenericAiMulliganOpeningHand = (hand, mulligansTaken = 0) => {
+  if (qualifiesForDandanFreeMulligan(hand)) return true;
+  if (mulligansTaken >= 3) return false;
+
+  const landCount = hand.filter(card => card?.isLand).length;
+  const blueLandCount = hand.filter(card => card?.isLand && (card.blueSources || 0) > 0).length;
+
+  return landCount === 0 || blueLandCount === 0;
+};
 export const shouldAiMulliganOpeningHand = (state, actor, mulligansTaken = 0) => {
   const hand = state[actor].hand;
-  if (qualifiesForDandanFreeMulligan(hand)) return true;
+  if (shouldGenericAiMulliganOpeningHand(hand, mulligansTaken)) return true;
   if (!isTortoise(state, actor)) return false;
-  if (mulligansTaken >= 3) return false;
   const nonIslandBlueLands = hand.filter(isBlueNonIslandLandCard).length;
   return nonIslandBlueLands < 2;
 };
 const runAiOpeningMulligans = (state, actor) => {
-  const characterId = getActorCharacterId(state, actor);
-  if (!characterId && !qualifiesForDandanFreeMulligan(state[actor].hand)) return 0;
-
   let mulligansTaken = 0;
   let safety = 0;
   while (shouldAiMulliganOpeningHand(state, actor, mulligansTaken) && safety < 12) {

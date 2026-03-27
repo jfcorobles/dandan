@@ -300,6 +300,25 @@ test('Tortoise mulligans Island-heavy openers until it finds two blue non-Island
     }
   });
   expect(shouldAiMulliganOpeningHand(genericAiFree, 'ai', 0) === true, 'All AI rivals should take the free Dandan mulligan on one-land openers');
+
+  const quickAiZeroLand = makeState({
+    aiCharacterId: null,
+    ai: {
+      life: 20,
+      hand: [
+        makeCard(CARDS.BRAINSTORM, { id: 'quick-zero-a' }),
+        makeCard(CARDS.PREDICT, { id: 'quick-zero-b' }),
+        makeCard(CARDS.TELLING_TIME, { id: 'quick-zero-c' }),
+        makeCard(CARDS.MEMORY_LAPSE, { id: 'quick-zero-d' }),
+        makeCard(CARDS.UNSUBSTANTIATE, { id: 'quick-zero-e' }),
+        makeCard(CARDS.CONTROL_MAGIC, { id: 'quick-zero-f' }),
+        makeCard(CARDS.DANDAN, { id: 'quick-zero-g' })
+      ],
+      board: [],
+      landsPlayed: 0
+    }
+  });
+  expect(shouldAiMulliganOpeningHand(quickAiZeroLand, 'ai', 0) === true, 'Quick-mode AI should mulligan a zero-land opener');
 });
 
 test('Tortoise never plays Island lands', () => {
@@ -337,6 +356,27 @@ test('Tortoise never plays Island lands', () => {
   });
   const islandOnlyAction = chooseAiAction(islandOnlyState, 'ai', 'hard', getAiPolicyForActor(islandOnlyState, 'ai', 'hard'));
   expect(islandOnlyAction.type !== 'PLAY_LAND', 'Tortoise should refuse to play a plain Island even when it is the only land');
+});
+
+test('generic AI starting first still plays a land on its opening main phase', () => {
+  const island = makeCard(CARDS.ISLAND_1, { id: 'generic-start-land' });
+
+  const state = makeState({
+    turn: 'ai',
+    priority: 'ai',
+    phase: 'main1',
+    difficulty: 'medium',
+    aiCharacterId: null,
+    ai: {
+      life: 20,
+      hand: [island],
+      board: [],
+      landsPlayed: 0
+    }
+  });
+
+  const action = chooseAiAction(state, 'ai', 'medium', getAiPolicyForActor(state, 'ai', 'medium'));
+  expect(action.type === 'PLAY_LAND' && action.cardId === island.id, 'An AI that starts first should still play its opening land in main1');
 });
 
 test('Haunted Fengraf sacrifices itself and can return Dandan', () => {
