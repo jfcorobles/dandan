@@ -3413,9 +3413,30 @@ const LandingScreen = ({
 }) => {
   const [homeRevealStep, setHomeRevealStep] = useState(menuScreen === 'home' ? 0 : 3);
   const [activePolicy, setActivePolicy] = useState(null);
+  const [isLandscapeViewport, setIsLandscapeViewport] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return window.innerWidth > window.innerHeight;
+  });
   const landingRippleSurfaceRef = useRef(null);
   const landingRippleInstanceRef = useRef(null);
   const hasPlayedInitialRevealRef = useRef(menuScreen !== 'home');
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined;
+
+    const syncViewportOrientation = () => {
+      setIsLandscapeViewport(window.innerWidth > window.innerHeight);
+    };
+
+    syncViewportOrientation();
+    window.addEventListener('resize', syncViewportOrientation);
+    window.addEventListener('orientationchange', syncViewportOrientation);
+
+    return () => {
+      window.removeEventListener('resize', syncViewportOrientation);
+      window.removeEventListener('orientationchange', syncViewportOrientation);
+    };
+  }, []);
 
   useEffect(() => {
     if (menuScreen !== 'home') {
@@ -3467,6 +3488,18 @@ const LandingScreen = ({
   const backgroundVisible = menuScreen !== 'home' || homeRevealStep >= 1;
   const titleVisible = menuScreen !== 'home' || homeRevealStep >= 2;
   const actionsVisible = menuScreen !== 'home' || (menuAssetsReady && homeRevealStep >= 3);
+  const landingBackgroundTransform = isLandscapeViewport
+    ? `translate(-50%, -50%) rotate(90deg) scale(${backgroundVisible ? '1' : '1.04'})`
+    : `translate(-50%, -50%) scale(${backgroundVisible ? '1' : '1.04'})`;
+  const landingBackgroundSurfaceStyle = {
+    width: isLandscapeViewport ? '100dvh' : '100vw',
+    height: isLandscapeViewport ? '100vw' : '100dvh',
+    backgroundImage: `url(${landingBackground})`,
+    filter: menuScreen === 'home'
+      ? 'saturate(1.08) brightness(1.12) contrast(1.04)'
+      : 'saturate(1.02) brightness(0.92)',
+    transform: landingBackgroundTransform
+  };
 
   useEffect(() => {
     const surface = landingRippleSurfaceRef.current;
@@ -3498,6 +3531,15 @@ const LandingScreen = ({
       }
     };
   }, [landingBackground, menuScreen]);
+
+  useEffect(() => {
+    const rippleSurface = landingRippleInstanceRef.current;
+    if (!rippleSurface || menuScreen !== 'home') return;
+
+    try {
+      rippleSurface.ripples('updateSize');
+    } catch (_error) {}
+  }, [isLandscapeViewport, menuScreen]);
 
   const spawnLandingRipple = (event) => {
     if (typeof window === 'undefined') return;
@@ -3536,15 +3578,10 @@ const LandingScreen = ({
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div
           ref={landingRippleSurfaceRef}
-          className={`absolute inset-0 bg-center bg-cover bg-no-repeat transition-[opacity,transform,filter] duration-[1400ms] ease-out ${
-            backgroundVisible ? 'opacity-100 scale-100' : 'opacity-0 scale-[1.04]'
+          className={`absolute left-1/2 top-1/2 bg-center bg-cover bg-no-repeat transition-[opacity,transform,filter] duration-[1400ms] ease-out ${
+            backgroundVisible ? 'opacity-100' : 'opacity-0'
           }`}
-          style={{
-            backgroundImage: `url(${landingBackground})`,
-            filter: menuScreen === 'home'
-              ? 'saturate(1.08) brightness(1.12) contrast(1.04)'
-              : 'saturate(1.02) brightness(0.92)'
-          }}
+          style={landingBackgroundSurfaceStyle}
         />
         <div
           className={`absolute inset-0 transition-opacity duration-[1400ms] ease-out ${
