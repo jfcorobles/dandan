@@ -6817,8 +6817,8 @@ export default function App() {
      passIcon = <Shield size={14} className={state.priority === 'player' ? 'text-current' : 'text-slate-600'} />;
      btnColorClass = isBlocking ? 'bg-gradient-to-b from-emerald-400 to-emerald-600 border-emerald-200 shadow-[0_0_20px_rgba(52,211,153,0.6)] text-slate-900' : 'bg-gradient-to-b from-slate-400 to-slate-600 border-slate-200 shadow-[0_0_20px_rgba(148,163,184,0.6)] text-slate-900';
   } else if (state.phase === 'main2') {
-     passLabel = 'END TURN';
-     passIcon = <Moon size={14} className={state.priority === 'player' ? 'text-current' : 'text-slate-600'} />;
+     passLabel = 'CLEANUP';
+     passIcon = <Droplet size={14} className={state.priority === 'player' ? 'text-current' : 'text-slate-600'} />;
      btnColorClass = 'bg-gradient-to-b from-indigo-400 to-indigo-600 border-indigo-200 shadow-[0_0_20px_rgba(129,140,248,0.6)] text-white';
   } else if (state.phase === 'cleanup') {
      passLabel = 'CLEANUP';
