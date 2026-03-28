@@ -1,9 +1,9 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { execFileSync } from 'node:child_process';
 import { Worker } from 'node:worker_threads';
 import { fileURLToPath } from 'node:url';
+import { runLocalTsc } from './run-local-tsc.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -140,13 +140,7 @@ const prepareRuntime = () => {
     '--skipLibCheck'
   ];
 
-  if (process.platform === 'win32') {
-    const tscCmd = path.join(repoRoot, 'node_modules', '.bin', 'tsc.cmd');
-    execFileSync('cmd.exe', ['/c', tscCmd, ...tscArgs], { cwd: repoRoot, stdio: 'inherit' });
-  } else {
-    const tscCmd = path.join(repoRoot, 'node_modules', '.bin', 'tsc');
-    execFileSync(tscCmd, tscArgs, { cwd: repoRoot, stdio: 'inherit' });
-  }
+  runLocalTsc(repoRoot, tscArgs);
 
   fs.writeFileSync(path.join(runtimeDir, 'trainedPolicy'), "export * from './trainedPolicy.js';\n");
 };
