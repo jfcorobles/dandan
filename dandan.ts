@@ -7411,18 +7411,6 @@ export default function App() {
           {/* Glowing central divider */}
           <div className="absolute top-1/2 left-0 w-full h-px bg-gradient-to-r from-transparent via-blue-500/50 to-transparent shadow-[0_0_15px_rgba(59,130,246,0.8)] -translate-y-1/2 pointer-events-none" />
 
-          {visibleKnownTopCard && (
-            <div className="absolute top-3 left-1/2 -translate-x-1/2 z-50 flex max-w-[min(88vw,24rem)] items-center gap-2 rounded-full border border-cyan-300/50 bg-slate-950/90 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.24em] text-cyan-100 shadow-[0_0_20px_rgba(34,211,238,0.25)] backdrop-blur-sm pointer-events-none">
-              <span className="text-cyan-300/80">Known Top</span>
-              <span className="min-w-0 truncate text-white normal-case tracking-normal font-semibold">{visibleKnownTopCard.name}</span>
-              {visibleKnownTopQueueCount > 0 && (
-                <span className="shrink-0 rounded-full bg-cyan-400/15 px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.18em] text-cyan-100">
-                  +{visibleKnownTopQueueCount} more
-                </span>
-              )}
-            </div>
-          )}
-          
           {/* Centered Phase Tracker Pill */}
           <div className={`absolute top-1/2 -translate-y-1/2 z-50 flex items-center transition-all duration-300 left-1/2 -translate-x-1/2 ${state.stack.length > 0 ? 'opacity-0 pointer-events-none scale-95' : 'opacity-100 scale-100'}`}>
               <PhaseTracker currentPhase={state.phase} turn={state.turn} />
@@ -7440,7 +7428,19 @@ export default function App() {
         {/* PLAYER ZONE */}
         <div className="flex min-h-0 flex-col h-[50%] lg:h-[54%] shrink-0 pt-1 relative z-20 px-2 bg-blue-950/10">
            {/* Player Avatar Badge */}
-           <div className="absolute top-2 left-2 flex items-center gap-3 z-30 bg-slate-900/90 pr-4 pl-1 py-1 rounded-full border border-slate-700 shadow-xl">
+           <div className="absolute top-2 left-2 z-30">
+              {visibleKnownTopCard && (
+                <div className="absolute bottom-full left-0 mb-2 flex max-w-[min(78vw,22rem)] items-center gap-2 rounded-full border border-cyan-300/50 bg-slate-950/92 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.24em] text-cyan-100 shadow-[0_0_20px_rgba(34,211,238,0.25)] backdrop-blur-sm pointer-events-none">
+                  <span className="text-cyan-300/80">Known Top</span>
+                  <span className="min-w-0 truncate text-white normal-case tracking-normal font-semibold">{visibleKnownTopCard.name}</span>
+                  {visibleKnownTopQueueCount > 0 && (
+                    <span className="shrink-0 rounded-full bg-cyan-400/15 px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.18em] text-cyan-100">
+                      +{visibleKnownTopQueueCount} more
+                    </span>
+                  )}
+                </div>
+              )}
+              <div className="flex items-center gap-3 bg-slate-900/90 pr-4 pl-1 py-1 rounded-full border border-slate-700 shadow-xl">
               <div className="relative">
                  <img src={isPeerMatch ? peerPlayerAvatarSrc : selectedPlayerAvatarSrc} className="w-10 h-10 rounded-full object-cover border-2 border-blue-600" alt="Player Avatar" />
                  <div className="absolute -bottom-1 -right-1 bg-blue-900 text-white text-[10px] font-black px-1.5 py-0.5 rounded-full border border-blue-400 shadow-lg">{state.player.life}</div>
@@ -7463,6 +7463,7 @@ export default function App() {
                      <MatchClockPill valueMs={displayedPlayerClockMs} running={isPlayerClockRunning} />
                    </div>
                  )}
+              </div>
               </div>
            </div>
 
