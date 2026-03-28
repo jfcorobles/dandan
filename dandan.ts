@@ -7426,9 +7426,9 @@ export default function App() {
         </div>
 
         {/* PLAYER ZONE */}
-        <div className="flex min-h-0 flex-col h-[50%] lg:h-[54%] shrink-0 pt-1 relative z-20 px-2 bg-blue-950/10">
+        <div className="flex min-h-0 flex-col h-[50%] lg:h-[54%] shrink-0 pt-1 relative px-2 bg-blue-950/10">
            {/* Player Avatar Badge */}
-           <div className="absolute top-2 left-2 z-30">
+           <div className="absolute top-2 left-2 z-[70]">
               {visibleKnownTopCard && (
                 <div className="absolute bottom-full left-0 mb-2 flex max-w-[min(78vw,22rem)] items-center gap-2 rounded-full border border-cyan-300/50 bg-slate-950/92 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.24em] text-cyan-100 shadow-[0_0_20px_rgba(34,211,238,0.25)] backdrop-blur-sm pointer-events-none">
                   <span className="text-cyan-300/80">Known Top</span>
